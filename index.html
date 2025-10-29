@@ -1,0 +1,2204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VM Travels - Your Trusted Travel Partner</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🚕</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Google Maps with Places API (New Version) -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCvh94LjftZWU-eVM380sTSRqtfXkKyw-g&libraries=places&v=weekly" async defer></script>
+    
+    <!-- Enhanced Location Search Styles -->
+    <style>
+        .suggestion-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #e5e7eb;
+            transition: background-color 0.2s ease;
+        }
+        
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+        
+        .suggestion-item:hover,
+        .suggestion-item.selected {
+            background-color: #f3f4f6;
+        }
+        
+        /* Drop location suggestions styling */
+        #dropLocationSuggestions {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border-radius: 0.5rem;
+        }
+        
+        #dropLocationSuggestions .suggestion-item {
+            transition: background-color 0.2s ease;
+        }
+        
+        #dropLocationSuggestions .suggestion-item:hover {
+            background-color: #f8fafc;
+        }
+        
+        #dropLocationSuggestions .suggestion-item:first-child {
+            border-top-left-radius: 0.5rem;
+            border-top-right-radius: 0.5rem;
+        }
+        
+        #dropLocationSuggestions .suggestion-item:last-child {
+            border-bottom-left-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+            border-bottom: none;
+        }
+        
+        .suggestion-icon {
+            margin-right: 12px;
+            color: #9ca3af;
+            width: 20px;
+            text-align: center;
+        }
+        
+        .suggestion-content {
+            flex: 1;
+        }
+        
+        .suggestion-main-text {
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 2px;
+        }
+        
+        .suggestion-secondary-text {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        
+        .suggestion-loading,
+        .suggestion-error,
+        .suggestion-no-results {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+        
+        .suggestion-error {
+            color: #ef4444;
+        }
+        
+        .suggestion-no-results {
+            color: #9ca3af;
+        }
+        
+        #pickupSuggestions {
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            max-height: 320px;
+            overflow-y: auto;
+            z-index: 50;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .notification.success {
+            background-color: #10b981;
+        }
+        
+        .notification.error {
+            background-color: #ef4444;
+        }
+        
+        .notification.info {
+            background-color: #3b82f6;
+        }
+    </style>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1E3A8A',      // Navy blue to match logo
+                        secondary: '#D4AF37',    // Gold/bronze to match logo
+                        accent: '#F8FAFC',
+                        logoBlue: '#0F172A',     // Dark navy for logo background
+                        logoGold: '#B8860B'      // Bronze gold for logo text
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-lg fixed w-full z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <div class="flex items-center space-x-3">
+                        <!-- VM Travels Logo -->
+                         <div class="w-16 h-12 bg-primary text-white rounded-lg flex items-center justify-center font-bold text-xl">VM</div>
+                        <div>
+                            <h1 class="text-2xl font-bold text-primary">VM Travels</h1>
+                        </div>
+                    </div>
+                </div>
+                 <div class="hidden md:flex space-x-8">
+                     <a href="#home" class="text-black hover:text-black transition hover:underline decoration-secondary underline-offset-4">Home</a>
+                     <a href="#vehicles" class="text-black hover:text-black transition hover:underline decoration-secondary underline-offset-4">Vehicles</a>
+                     <a href="#booking" class="text-black hover:text-black transition hover:underline decoration-secondary underline-offset-4">Book Now</a>
+                     <a href="#contact" class="text-black hover:text-black transition hover:underline decoration-secondary underline-offset-4">Contact</a>
+                 </div>
+                <div class="flex items-center space-x-4">
+                    <a href="tel:9008888844" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition">
+                        <i class="fas fa-phone mr-2"></i>Call Now
+                    </a>
+                    <a href="https://wa.me/9008888844?text=Hi%20VM%20Travels%2C%20I%20want%20to%20book%20a%20ride" target="_blank" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition">
+                        <i class="fab fa-whatsapp mr-2"></i>WhatsApp
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="home" class="pt-20 bg-gradient-to-r from-logoBlue via-primary to-blue-800 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+            <div class="text-center">
+                <!-- Large VM Travels Logo -->
+                <div class="flex justify-center mb-8">
+                     <div class="w-48 h-32 bg-white text-primary rounded-xl flex items-center justify-center font-bold text-6xl shadow-lg">VM</div>
+                </div>
+                <h1 class="text-5xl font-bold mb-6 hero-title">Welcome to VM Travels</h1>
+                <p class="text-xl mb-8">Your trusted partner for comfortable and reliable travel across Bangalore and India</p>
+                
+                <!-- Feature Buttons -->
+                <div class="flex flex-col sm:flex-row gap-4 justify-center mb-8 feature-buttons">
+                    <div class="bg-yellow-400 text-black px-6 py-3 rounded-lg flex items-center justify-center gap-2">
+                        <i class="fas fa-calendar-times text-green-600"></i>
+                        <span class="font-semibold">Free Cancellation</span>
+                    </div>
+                    <div class="bg-yellow-400 text-black px-6 py-3 rounded-lg flex items-center justify-center gap-2">
+                        <i class="fas fa-check-circle text-green-600"></i>
+                        <span class="font-semibold">Hygienic & Neatly Maintained</span>
+                    </div>
+                    <div class="bg-yellow-400 text-black px-6 py-3 rounded-lg flex items-center justify-center gap-2">
+                        <i class="fas fa-user-tie text-green-600"></i>
+                        <span class="font-semibold">Experienced & Responsible Drivers</span>
+                    </div>
+                    <div class="bg-yellow-400 text-black px-6 py-3 rounded-lg flex items-center justify-center gap-2">
+                        <i class="fas fa-phone text-green-600"></i>
+                        <span class="font-semibold">24-hour support</span>
+                    </div>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <a href="#booking" class="bg-secondary text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-yellow-500 transition">
+                        Book Your Ride
+                    </a>
+                    <a href="#vehicles" class="border-2 border-white text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-white hover:text-primary transition">
+                        View Vehicles
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Vehicles Section -->
+    <section id="vehicles" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">vehicles available for outstation</h2>
+                <p class="text-xl text-gray-600">Choose from our wide range of comfortable vehicles</p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6 vehicle-grid">
+                <!-- Sedan -->
+                <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition">
+                    <div class="p-4">
+                        <div class="w-full h-32 bg-gray-200 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                            <img src="Vehicles/Sedan.png" alt="Sedan AC" class="w-full h-full object-cover rounded-lg">
+                        </div>
+                        <h3 class="text-lg font-bold mb-2">Sedan</h3>
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-users text-gray-500 mr-2"></i>
+                            <span class="text-sm text-gray-600">4+1</span>
+                        </div>
+                        <div class="space-y-2 text-xs text-gray-600">
+                            <div class="flex items-center">
+                                <i class="fas fa-rupee-sign text-gray-500 mr-2 w-4"></i>
+                                <span>Fare ₹11.00/km</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-car text-gray-500 mr-2 w-4"></i>
+                                <span>250km/day</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-map-marker-alt text-gray-500 mr-2 w-4"></i>
+                                <span>Bata ₹300/day</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-blue-600 text-white px-4 py-2 rounded-b-xl">
+                        <span class="text-xl font-bold">₹11/km</span>
+                    </div>
+                </div>
+
+                
+
+                <!-- Maruti Ertiga AC -->
+                <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition">
+                    <div class="p-4">
+                        <div class="w-full h-32 bg-gray-200 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                            <img src="Vehicles/ErtigaSUV.jpg" alt="Maruti Ertiga AC" class="w-full h-full object-cover rounded-lg">
+                        </div>
+                        <h3 class="text-lg font-bold mb-2">Maruti Ertiga AC</h3>
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-users text-gray-500 mr-2"></i>
+                            <span class="text-sm text-gray-600">6+1</span>
+                        </div>
+                        <div class="space-y-2 text-xs text-gray-600">
+                            <div class="flex items-center">
+                                <i class="fas fa-rupee-sign text-gray-500 mr-2 w-4"></i>
+                                <span>Fare ₹14.00/km</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-car text-gray-500 mr-2 w-4"></i>
+                                <span>300km/day</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-map-marker-alt text-gray-500 mr-2 w-4"></i>
+                                <span>Bata ₹400/day</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-blue-600 text-white px-4 py-2 rounded-b-xl">
+                        <span class="text-xl font-bold">₹14/km</span>
+                    </div>
+                </div>
+
+                <!-- Toyota Innova AC -->
+                <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition">
+                    <div class="p-4">
+                        <div class="w-full h-32 bg-gray-200 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                            <img src="Vehicles/ToyataInnova.png" alt="Toyota Innova AC" class="w-full h-full object-cover rounded-lg">
+                        </div>
+                        <h3 class="text-lg font-bold mb-2">Toyota Innova AC</h3>
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-users text-gray-500 mr-2"></i>
+                            <span class="text-sm text-gray-600">7+1</span>
+                        </div>
+                        <div class="space-y-2 text-xs text-gray-600">
+                            <div class="flex items-center">
+                                <i class="fas fa-rupee-sign text-gray-500 mr-2 w-4"></i>
+                                <span>Fare ₹16.00/km</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-car text-gray-500 mr-2 w-4"></i>
+                                <span>300km/day</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-map-marker-alt text-gray-500 mr-2 w-4"></i>
+                                <span>Bata ₹400/day</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-blue-600 text-white px-4 py-2 rounded-b-xl">
+                        <span class="text-xl font-bold">₹16/km</span>
+                    </div>
+                </div>
+
+                <!-- Toyota Innova Crysta AC -->
+                <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition">
+                    <div class="p-4">
+                        <div class="w-full h-32 bg-gray-200 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                            <img src="Vehicles/ToyataInnovaCrysta.png" alt="Toyota Innova Crysta AC" class="w-full h-full object-cover rounded-lg">
+                        </div>
+                        <h3 class="text-lg font-bold mb-2">Toyota Innova Crysta AC</h3>
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-users text-gray-500 mr-2"></i>
+                            <span class="text-sm text-gray-600">7+1</span>
+                        </div>
+                        <div class="space-y-2 text-xs text-gray-600">
+                            <div class="flex items-center">
+                                <i class="fas fa-rupee-sign text-gray-500 mr-2 w-4"></i>
+                                <span>Fare ₹17.00/km</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-car text-gray-500 mr-2 w-4"></i>
+                                <span>300km/day</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-map-marker-alt text-gray-500 mr-2 w-4"></i>
+                                <span>Bata ₹400/day</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-blue-600 text-white px-4 py-2 rounded-b-xl">
+                        <span class="text-xl font-bold">₹17/km</span>
+                    </div>
+                </div>
+
+                <!-- Tempo Traveller Non-AC -->
+                <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition">
+                    <div class="p-4">
+                        <div class="w-full h-32 bg-gray-200 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                            <img src="Vehicles/TempTraveller.jpg" alt="Tempo Traveller Non-AC" class="w-full h-full object-cover rounded-lg">
+                        </div>
+                        <h3 class="text-lg font-bold mb-2">Tempo Traveller Non-AC</h3>
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-users text-gray-500 mr-2"></i>
+                            <span class="text-sm text-gray-600">12+1</span>
+                        </div>
+                        <div class="space-y-2 text-xs text-gray-600">
+                            <div class="flex items-center">
+                                <i class="fas fa-rupee-sign text-gray-500 mr-2 w-4"></i>
+                                <span>Fare ₹17.00/km</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-car text-gray-500 mr-2 w-4"></i>
+                                <span>300km/day</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-map-marker-alt text-gray-500 mr-2 w-4"></i>
+                                <span>Bata ₹500/day</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-blue-600 text-white px-4 py-2 rounded-b-xl">
+                        <span class="text-xl font-bold">₹17/km</span>
+                    </div>
+                </div>
+
+                <!-- Tempo Traveller AC -->
+                <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition">
+                    <div class="p-4">
+                        <div class="w-full h-32 bg-gray-200 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                            <img src="Vehicles/TempTraveller.jpg" alt="Tempo Traveller AC" class="w-full h-full object-cover rounded-lg">
+                        </div>
+                        <h3 class="text-lg font-bold mb-2">Tempo Traveller AC</h3>
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-users text-gray-500 mr-2"></i>
+                            <span class="text-sm text-gray-600">12+1</span>
+                        </div>
+                        <div class="space-y-2 text-xs text-gray-600">
+                            <div class="flex items-center">
+                                <i class="fas fa-rupee-sign text-gray-500 mr-2 w-4"></i>
+                                <span>Fare ₹19.00/km</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-car text-gray-500 mr-2 w-4"></i>
+                                <span>300km/day</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-map-marker-alt text-gray-500 mr-2 w-4"></i>
+                                <span>Bata ₹500/day</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-blue-600 text-white px-4 py-2 rounded-b-xl">
+                        <span class="text-xl font-bold">₹19/km</span>
+                    </div>
+                </div>
+
+                <!-- Bus 21+1 Non-AC -->
+                <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition">
+                    <div class="p-4">
+                        <div class="w-full h-32 bg-gray-200 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                            <img src="Vehicles/bus.jpg" alt="Bus 21+1 Non-AC" class="w-full h-full object-cover rounded-lg">
+                        </div>
+                        <h3 class="text-lg font-bold mb-2">Bus 21+1 Non-AC</h3>
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-users text-gray-500 mr-2"></i>
+                            <span class="text-sm text-gray-600">21+1</span>
+                        </div>
+                        <div class="space-y-2 text-xs text-gray-600">
+                            <div class="flex items-center">
+                                <i class="fas fa-rupee-sign text-gray-500 mr-2 w-4"></i>
+                                <span>Fare ₹28.00/km</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-car text-gray-500 mr-2 w-4"></i>
+                                <span>300km/day</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-map-marker-alt text-gray-500 mr-2 w-4"></i>
+                                <span>Bata ₹600/day</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-blue-600 text-white px-4 py-2 rounded-b-xl">
+                        <span class="text-xl font-bold">₹28/km</span>
+                    </div>
+                </div>
+
+                <!-- Bus 21+1 AC -->
+                <div class="bg-white rounded-xl shadow-lg hover:shadow-xl transition">
+                    <div class="p-4">
+                        <div class="w-full h-32 bg-gray-200 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                            <img src="Vehicles/bus.jpg" alt="Bus 21+1 AC" class="w-full h-full object-cover rounded-lg">
+                        </div>
+                        <h3 class="text-lg font-bold mb-2">Bus 21+1 AC</h3>
+                        <div class="flex items-center mb-3">
+                            <i class="fas fa-users text-gray-500 mr-2"></i>
+                            <span class="text-sm text-gray-600">21+1</span>
+                        </div>
+                        <div class="space-y-2 text-xs text-gray-600">
+                            <div class="flex items-center">
+                                <i class="fas fa-rupee-sign text-gray-500 mr-2 w-4"></i>
+                                <span>Fare ₹31.00/km</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-car text-gray-500 mr-2 w-4"></i>
+                                <span>300km/day</span>
+                            </div>
+                            <div class="flex items-center">
+                                <i class="fas fa-map-marker-alt text-gray-500 mr-2 w-4"></i>
+                                <span>Bata ₹600/day</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-blue-600 text-white px-4 py-2 rounded-b-xl">
+                        <span class="text-xl font-bold">₹31/km</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Booking Section -->
+    <section id="booking" class="py-20 bg-gray-100">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">Book Your Ride</h2>
+                <p class="text-xl text-gray-600">Fill the form below and we'll get back to you within minutes</p>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                <!-- Step Indicator -->
+                <div class="flex items-center justify-center mb-8">
+                    <div class="flex items-center space-x-4">
+                        <!-- Step 1: Details -->
+                        <div class="flex items-center">
+                            <div class="bg-green-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" id="step1-indicator">
+                                1
+                            </div>
+                            <span class="ml-2 text-sm text-green-700 font-medium" id="step1-text">Details</span>
+                        </div>
+                        
+                        <!-- Connector -->
+                        <div class="w-8 h-0.5 bg-gray-300" id="connector1"></div>
+                        
+                        <!-- Step 2: Vehicle -->
+                        <div class="flex items-center">
+                            <div class="bg-gray-300 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" id="step2-indicator">
+                                2
+                            </div>
+                            <span class="ml-2 text-sm text-gray-500" id="step2-text">Vehicle</span>
+                        </div>
+                        
+                        <!-- Connector -->
+                        <div class="w-8 h-0.5 bg-gray-300" id="connector2"></div>
+                        
+                        <!-- Step 3: Confirmation -->
+                        <div class="flex items-center">
+                            <div class="bg-gray-300 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" id="step3-indicator">
+                                3
+                            </div>
+                            <span class="ml-2 text-sm text-gray-500" id="step3-text">Confirmation</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Navigation -->
+                <div class="flex border-b border-gray-200 mb-8" id="tab-navigation">
+                    <button class="tab-button active px-6 py-3 font-medium text-sm border-b-2 border-green-500 bg-green-50 text-green-700" data-tab="local">
+                        <i class="fas fa-city mr-2"></i>Local
+                    </button>
+                    <button class="tab-button px-6 py-3 font-medium text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50" data-tab="outstation">
+                        <i class="fas fa-map-marked-alt mr-2"></i>Outstation
+                    </button>
+                    <button class="tab-button px-6 py-3 font-medium text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50" data-tab="package">
+                        <i class="fas fa-box mr-2"></i>Package
+                    </button>
+                </div>
+
+                <!-- Booking Form -->
+                <form id="bookingForm" class="space-y-6">
+                    <!-- Common Fields -->
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                            <input type="text" name="name" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
+                            <input type="tel" name="phone" required pattern="[0-9]{10}" maxlength="10" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="9876543210">
+                            <p class="text-xs text-gray-500 mt-1">Enter 10-digit mobile number</p>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                         <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" name="email" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                         </div>
+                        <div class="flex items-center">
+                            <div class="w-full">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                                <textarea name="message" rows="2" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Any special requirements or additional information..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Local Tab Content -->
+                    <div id="local-tab" class="tab-content">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                             <label class="block text-sm font-medium text-gray-700 mb-2">Pickup Location *</label>
+                             <div class="relative">
+                                    <select name="pickup" id="pickupLocation" data-required="true" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        <option value="">Select pickup location</option>
+                                        <option value="Koramangala">Koramangala</option>
+                                        <option value="Whitefield">Whitefield</option>
+                                        <option value="MG Road">MG Road</option>
+                                        <option value="Brigade Road">Brigade Road</option>
+                                        <option value="Indiranagar">Indiranagar</option>
+                                        <option value="Jayanagar">Jayanagar</option>
+                                        <option value="JP Nagar">JP Nagar</option>
+                                        <option value="Banashankari">Banashankari</option>
+                                        <option value="Basavanagudi">Basavanagudi</option>
+                                        <option value="Malleshwaram">Malleshwaram</option>
+                                        <option value="Rajajinagar">Rajajinagar</option>
+                                        <option value="Vijaynagar">Vijaynagar</option>
+                                        <option value="Kengeri">Kengeri</option>
+                                        <option value="Marathahalli">Marathahalli</option>
+                                        <option value="Electronic City">Electronic City</option>
+                                        <option value="Hebbal">Hebbal</option>
+                                        <option value="Yelahanka">Yelahanka</option>
+                                        <option value="Bellandur">Bellandur</option>
+                                        <option value="Sarjapur">Sarjapur</option>
+                                        <option value="HSR Layout">HSR Layout</option>
+                                        <option value="BTM Layout">BTM Layout</option>
+                                        <option value="Bommanahalli">Bommanahalli</option>
+                                        <option value="Silk Board">Silk Board</option>
+                                        <option value="Kodihalli">Kodihalli</option>
+                                        <option value="Domlur">Domlur</option>
+                                        <option value="Ulsoor">Ulsoor</option>
+                                        <option value="Cunningham Road">Cunningham Road</option>
+                                        <option value="Residency Road">Residency Road</option>
+                                        <option value="Church Street">Church Street</option>
+                                        <option value="Commercial Street">Commercial Street</option>
+                                        <option value="Chickpet">Chickpet</option>
+                                        <option value="Majestic">Majestic</option>
+                                        <option value="City Railway Station">City Railway Station</option>
+                                        <option value="Kempegowda Bus Station">Kempegowda Bus Station</option>
+                                        <option value="Airport">Airport</option>
+                                        <option value="Yeshwanthpur">Yeshwanthpur</option>
+                                        <option value="Peenya">Peenya</option>
+                                        <option value="Tumkur Road">Tumkur Road</option>
+                                        <option value="Mysore Road">Mysore Road</option>
+                                        <option value="Hosur Road">Hosur Road</option>
+                                        <option value="Old Airport Road">Old Airport Road</option>
+                                        <option value="New Airport Road">New Airport Road</option>
+                                        <option value="Bannerghatta Road">Bannerghatta Road</option>
+                                        <option value="Kanakapura Road">Kanakapura Road</option>
+                                        <option value="Magadi Road">Magadi Road</option>
+                                        <option value="Hennur">Hennur</option>
+                                        <option value="Nagawara">Nagawara</option>
+                                        <option value="HBR Layout">HBR Layout</option>
+                                        <option value="Other">Other (Specify below)</option>
+                            </select>
+                                 </div>
+                                <div id="pickupOther" class="mt-2 hidden">
+                                    <input type="text" name="pickupOther" placeholder="Enter pickup location" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                             </div>
+                         </div>
+                        <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Drop Location *</label>
+                            <div class="relative">
+                                    <select name="drop" id="dropLocation" data-required="true" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        <option value="">Select destination</option>
+                                        <option value="Koramangala">Koramangala</option>
+                                        <option value="Whitefield">Whitefield</option>
+                                        <option value="MG Road">MG Road</option>
+                                        <option value="Brigade Road">Brigade Road</option>
+                                        <option value="Indiranagar">Indiranagar</option>
+                                        <option value="Jayanagar">Jayanagar</option>
+                                        <option value="JP Nagar">JP Nagar</option>
+                                        <option value="Banashankari">Banashankari</option>
+                                        <option value="Basavanagudi">Basavanagudi</option>
+                                        <option value="Malleshwaram">Malleshwaram</option>
+                                        <option value="Rajajinagar">Rajajinagar</option>
+                                        <option value="Vijaynagar">Vijaynagar</option>
+                                        <option value="Kengeri">Kengeri</option>
+                                        <option value="Marathahalli">Marathahalli</option>
+                                        <option value="Electronic City">Electronic City</option>
+                                        <option value="Hebbal">Hebbal</option>
+                                        <option value="Yelahanka">Yelahanka</option>
+                                        <option value="Bellandur">Bellandur</option>
+                                        <option value="Sarjapur">Sarjapur</option>
+                                        <option value="HSR Layout">HSR Layout</option>
+                                        <option value="BTM Layout">BTM Layout</option>
+                                        <option value="Bommanahalli">Bommanahalli</option>
+                                        <option value="Silk Board">Silk Board</option>
+                                        <option value="Kodihalli">Kodihalli</option>
+                                        <option value="Domlur">Domlur</option>
+                                        <option value="Ulsoor">Ulsoor</option>
+                                        <option value="Cunningham Road">Cunningham Road</option>
+                                        <option value="Residency Road">Residency Road</option>
+                                        <option value="Church Street">Church Street</option>
+                                        <option value="Commercial Street">Commercial Street</option>
+                                        <option value="Chickpet">Chickpet</option>
+                                        <option value="Majestic">Majestic</option>
+                                        <option value="City Railway Station">City Railway Station</option>
+                                        <option value="Kempegowda Bus Station">Kempegowda Bus Station</option>
+                                        <option value="Airport">Airport</option>
+                                        <option value="Yeshwanthpur">Yeshwanthpur</option>
+                                        <option value="Peenya">Peenya</option>
+                                        <option value="Tumkur Road">Tumkur Road</option>
+                                        <option value="Mysore Road">Mysore Road</option>
+                                        <option value="Hosur Road">Hosur Road</option>
+                                        <option value="Old Airport Road">Old Airport Road</option>
+                                        <option value="New Airport Road">New Airport Road</option>
+                                        <option value="Bannerghatta Road">Bannerghatta Road</option>
+                                        <option value="Kanakapura Road">Kanakapura Road</option>
+                                        <option value="Magadi Road">Magadi Road</option>
+                                        <option value="Hennur">Hennur</option>
+                                        <option value="Nagawara">Nagawara</option>
+                                        <option value="HBR Layout">HBR Layout</option>
+                                        <option value="Other">Other (Specify below)</option>
+                                    </select>
+                                </div>
+                                <div id="dropOther" class="mt-2 hidden">
+                                    <input type="text" name="dropOther" placeholder="Enter destination" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Travel Date *</label>
+                                <input type="date" name="travelDate" data-required="true" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Travel Time *</label>
+                            <div class="flex space-x-2">
+                                <select name="hour" data-required="true" class="flex-1 px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </select>
+                                <select name="minute" data-required="true" class="flex-1 px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </select>
+                                <select name="period" data-required="true" class="flex-1 px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </select>
+                            </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Outstation Tab Content -->
+                    <div id="outstation-tab" class="tab-content hidden">
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Trip Type *</label>
+                            <div class="flex space-x-4">
+                                <label class="flex items-center">
+                                    <input type="radio" name="tripType" value="oneway" class="mr-2" checked>
+                                    <span>One Way</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="tripType" value="roundtrip" class="mr-2">
+                                    <span>Round Trip</span>
+                                </label>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-6">
+                         <div>
+                             <label class="block text-sm font-medium text-gray-700 mb-2">Pickup Location *</label>
+                             <div class="relative">
+                                    <select name="outstationPickup" id="outstationPickupLocation" data-required="true" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        <option value="">Select pickup location</option>
+                                        <option value="Bangalore">Bangalore</option>
+                                        <option value="Mysore">Mysore</option>
+                                        <option value="Chennai">Chennai</option>
+                                        <option value="Hyderabad">Hyderabad</option>
+                                        <option value="Mumbai">Mumbai</option>
+                                        <option value="Pune">Pune</option>
+                                        <option value="Goa">Goa</option>
+                                        <option value="Kochi">Kochi</option>
+                                        <option value="Coimbatore">Coimbatore</option>
+                                        <option value="Mangalore">Mangalore</option>
+                                        <option value="Hubli">Hubli</option>
+                                        <option value="Belgaum">Belgaum</option>
+                                        <option value="Gulbarga">Gulbarga</option>
+                                        <option value="Tumkur">Tumkur</option>
+                                        <option value="Hassan">Hassan</option>
+                                        <option value="Shimoga">Shimoga</option>
+                                        <option value="Chitradurga">Chitradurga</option>
+                                        <option value="Davangere">Davangere</option>
+                                        <option value="Bellary">Bellary</option>
+                                        <option value="Bijapur">Bijapur</option>
+                                        <option value="Raichur">Raichur</option>
+                                        <option value="Koppal">Koppal</option>
+                                        <option value="Gadag">Gadag</option>
+                                        <option value="Bagalkot">Bagalkot</option>
+                                        <option value="Bidar">Bidar</option>
+                                        <option value="Yadgir">Yadgir</option>
+                                        <option value="Vijayapura">Vijayapura</option>
+                                        <option value="Kalaburagi">Kalaburagi</option>
+                                        <option value="Other">Other (Specify below)</option>
+                                    </select>
+                                 </div>
+                                <div id="outstationPickupOther" class="mt-2 hidden">
+                                    <input type="text" name="outstationPickupOther" placeholder="Enter pickup location" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                             </div>
+                         </div>
+                        <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Drop Location *</label>
+                            <div class="relative">
+                                    <select name="outstationDrop" id="outstationDropLocation" data-required="true" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        <option value="">Select destination</option>
+                                        <option value="Bangalore">Bangalore</option>
+                                        <option value="Mysore">Mysore</option>
+                                        <option value="Chennai">Chennai</option>
+                                        <option value="Hyderabad">Hyderabad</option>
+                                        <option value="Mumbai">Mumbai</option>
+                                        <option value="Pune">Pune</option>
+                                        <option value="Goa">Goa</option>
+                                        <option value="Kochi">Kochi</option>
+                                        <option value="Coimbatore">Coimbatore</option>
+                                        <option value="Mangalore">Mangalore</option>
+                                        <option value="Hubli">Hubli</option>
+                                        <option value="Belgaum">Belgaum</option>
+                                        <option value="Gulbarga">Gulbarga</option>
+                                        <option value="Tumkur">Tumkur</option>
+                                        <option value="Hassan">Hassan</option>
+                                        <option value="Shimoga">Shimoga</option>
+                                        <option value="Chitradurga">Chitradurga</option>
+                                        <option value="Davangere">Davangere</option>
+                                        <option value="Bellary">Bellary</option>
+                                        <option value="Bijapur">Bijapur</option>
+                                        <option value="Raichur">Raichur</option>
+                                        <option value="Koppal">Koppal</option>
+                                        <option value="Gadag">Gadag</option>
+                                        <option value="Bagalkot">Bagalkot</option>
+                                        <option value="Bidar">Bidar</option>
+                                        <option value="Yadgir">Yadgir</option>
+                                        <option value="Vijayapura">Vijayapura</option>
+                                        <option value="Kalaburagi">Kalaburagi</option>
+                                        <option value="Other">Other (Specify below)</option>
+                                    </select>
+                                </div>
+                                <div id="outstationDropOther" class="mt-2 hidden">
+                                    <input type="text" name="outstationDropOther" placeholder="Enter destination" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+                            </div>
+                    </div>
+
+                        <!-- One Way Fields -->
+                        <div id="oneway-fields">
+                            <div class="grid md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Travel Date *</label>
+                                    <input type="date" name="onewayDate" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Travel Time *</label>
+                                    <div class="flex space-x-2">
+                                        <select name="onewayHour" class="flex-1 px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </select>
+                                        <select name="onewayMinute" class="flex-1 px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        </select>
+                                        <select name="onewayPeriod" class="flex-1 px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </select>
+                                    </div>
+                                </div>
+                        </div>
+                    </div>
+
+                        <!-- Round Trip Fields -->
+                        <div id="roundtrip-fields" class="hidden">
+                    <div class="grid md:grid-cols-2 gap-6">
+                        <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Start Date *</label>
+                                    <input type="date" name="startDate" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Return Date *</label>
+                                    <input type="date" name="returnDate" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                            </div>
+                            <div class="grid md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Travel Time *</label>
+                            <div class="flex space-x-2">
+                                        <select name="roundtripHour" class="flex-1 px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </select>
+                                        <select name="roundtripMinute" class="flex-1 px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </select>
+                                        <select name="roundtripPeriod" class="flex-1 px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </select>
+                            </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Package Tab Content -->
+                    <div id="package-tab" class="tab-content hidden">
+                        <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Pickup Location *</label>
+                                <div class="relative">
+                                    <select name="packagePickup" id="packagePickupLocation" data-required="true" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                        <option value="">Select pickup location</option>
+                                        <option value="Koramangala">Koramangala</option>
+                                        <option value="Whitefield">Whitefield</option>
+                                        <option value="MG Road">MG Road</option>
+                                        <option value="Brigade Road">Brigade Road</option>
+                                        <option value="Indiranagar">Indiranagar</option>
+                                        <option value="Jayanagar">Jayanagar</option>
+                                        <option value="JP Nagar">JP Nagar</option>
+                                        <option value="Banashankari">Banashankari</option>
+                                        <option value="Basavanagudi">Basavanagudi</option>
+                                        <option value="Malleshwaram">Malleshwaram</option>
+                                        <option value="Rajajinagar">Rajajinagar</option>
+                                        <option value="Vijaynagar">Vijaynagar</option>
+                                        <option value="Kengeri">Kengeri</option>
+                                        <option value="Marathahalli">Marathahalli</option>
+                                        <option value="Electronic City">Electronic City</option>
+                                        <option value="Hebbal">Hebbal</option>
+                                        <option value="Yelahanka">Yelahanka</option>
+                                        <option value="Bellandur">Bellandur</option>
+                                        <option value="Sarjapur">Sarjapur</option>
+                                        <option value="HSR Layout">HSR Layout</option>
+                                        <option value="BTM Layout">BTM Layout</option>
+                                        <option value="Bommanahalli">Bommanahalli</option>
+                                        <option value="Silk Board">Silk Board</option>
+                                        <option value="Kodihalli">Kodihalli</option>
+                                        <option value="Domlur">Domlur</option>
+                                        <option value="Ulsoor">Ulsoor</option>
+                                        <option value="Cunningham Road">Cunningham Road</option>
+                                        <option value="Residency Road">Residency Road</option>
+                                        <option value="Church Street">Church Street</option>
+                                        <option value="Commercial Street">Commercial Street</option>
+                                        <option value="Chickpet">Chickpet</option>
+                                        <option value="Majestic">Majestic</option>
+                                        <option value="City Railway Station">City Railway Station</option>
+                                        <option value="Kempegowda Bus Station">Kempegowda Bus Station</option>
+                                        <option value="Airport">Airport</option>
+                                        <option value="Yeshwanthpur">Yeshwanthpur</option>
+                                        <option value="Peenya">Peenya</option>
+                                        <option value="Tumkur Road">Tumkur Road</option>
+                                        <option value="Mysore Road">Mysore Road</option>
+                                        <option value="Hosur Road">Hosur Road</option>
+                                        <option value="Old Airport Road">Old Airport Road</option>
+                                        <option value="New Airport Road">New Airport Road</option>
+                                        <option value="Bannerghatta Road">Bannerghatta Road</option>
+                                        <option value="Kanakapura Road">Kanakapura Road</option>
+                                        <option value="Magadi Road">Magadi Road</option>
+                                        <option value="Hennur">Hennur</option>
+                                        <option value="Nagawara">Nagawara</option>
+                                        <option value="HBR Layout">HBR Layout</option>
+                                        <option value="Other">Other (Specify below)</option>
+                                    </select>
+                                </div>
+                                <div id="packagePickupOther" class="mt-2 hidden">
+                                    <input type="text" name="packagePickupOther" placeholder="Enter pickup location" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Package Type *</label>
+                                <div class="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 flex items-center">
+                                    <i class="fas fa-clock mr-2 text-primary"></i>
+                                    <span class="font-medium">8 Hours Package</span>
+                                    <span class="ml-2 text-sm text-gray-500">(Standard Package)</span>
+                                </div>
+                                <input type="hidden" name="packageType" value="8 hrs 80 km">
+                            </div>
+                    </div>
+
+                        <div class="grid md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Date *</label>
+                                <input type="date" name="packageDate" data-required="true" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Time *</label>
+                                <div class="flex space-x-2">
+                                    <select name="packageHour" data-required="true" class="flex-1 px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    </select>
+                                    <select name="packageMinute" data-required="true" class="flex-1 px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    </select>
+                                    <select name="packagePeriod" data-required="true" class="flex-1 px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hidden inputs to store combined data -->
+                    <input type="hidden" name="tripType" id="tripTypeHidden">
+                    <input type="hidden" name="activeTab" id="activeTab">
+
+                    <div class="text-center space-y-3">
+                        <button type="button" id="selectCabsBtn" class="bg-primary text-white px-12 py-4 rounded-lg text-lg font-semibold hover:bg-blue-700 transition">
+                            <i class="fas fa-car mr-2"></i>Select Cabs
+                        </button>
+                        <button type="submit" id="bookNowBtn" class="bg-green-600 text-white px-12 py-4 rounded-lg text-lg font-semibold hover:bg-green-700 transition hidden">
+                            <i class="fas fa-check mr-2"></i>Book Now
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Step 2: Vehicle Selection (Hidden by default) -->
+                <div id="step2-content" class="hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <div class="text-center flex-1">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Choose Your Vehicle</h3>
+                            <p class="text-gray-600">Select your preferred vehicle for the trip</p>
+                        </div>
+                        <button id="closeVehicleModal" class="text-gray-400 hover:text-gray-600 transition-colors p-2">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <!-- Sedan -->
+                        <div class="vehicle-card bg-white rounded-xl shadow-sm border-2 border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer" data-vehicle="Sedan" data-price="16">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                    <img src="Vehicles/Sedan.png" alt="Sedan" class="w-full h-full object-cover">
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900">Sedan</h3>
+                                    <p class="text-sm text-gray-600">4+1 Seater • AC</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="flex flex-col items-end mb-3">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" id="sedan-spinner"></div>
+                                            <p class="text-2xl font-bold text-gray-900" id="sedan-fare"></p>
+                                        </div>
+                                        <p class="text-xs text-gray-500" id="sedan-calculating">Calculating fare...</p>
+                                    </div>
+                                </div>
+                                <button class="bg-green-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-green-700 transition-colors">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Maruti Ertiga -->
+                        <div class="vehicle-card bg-white rounded-xl shadow-sm border-2 border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer" data-vehicle="Maruti Ertiga AC" data-price="15">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                    <img src="Vehicles/ErtigaSUV.jpg" alt="Maruti Ertiga" class="w-full h-full object-cover">
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900">Maruti Ertiga</h3>
+                                    <p class="text-sm text-gray-600">6+1 Seater • AC</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="flex flex-col items-end mb-3">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" id="ertiga-spinner"></div>
+                                            <p class="text-2xl font-bold text-gray-900" id="ertiga-fare"></p>
+                                        </div>
+                                        <p class="text-xs text-gray-500" id="ertiga-calculating">Calculating fare...</p>
+                                    </div>
+                                </div>
+                                <button class="bg-green-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-green-700 transition-colors">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Toyota Innova -->
+                        <div class="vehicle-card bg-white rounded-xl shadow-sm border-2 border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer" data-vehicle="Toyota Innova AC" data-price="16">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                    <img src="Vehicles/ToyataInnova.png" alt="Toyota Innova" class="w-full h-full object-cover">
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900">Toyota Innova</h3>
+                                    <p class="text-sm text-gray-600">7+1 Seater • AC</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="flex flex-col items-end mb-3">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" id="innova-spinner"></div>
+                                            <p class="text-2xl font-bold text-gray-900" id="innova-fare"></p>
+                                        </div>
+                                        <p class="text-xs text-gray-500" id="innova-calculating">Calculating fare...</p>
+                                    </div>
+                                </div>
+                                <button class="bg-green-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-green-700 transition-colors">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Toyota Innova Crysta -->
+                        <div class="vehicle-card bg-white rounded-xl shadow-sm border-2 border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer" data-vehicle="Toyota Innova Crysta AC" data-price="17">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                    <img src="Vehicles/ToyataInnovaCrysta.png" alt="Toyota Innova Crysta" class="w-full h-full object-cover">
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900">Innova Crysta</h3>
+                                    <p class="text-sm text-gray-600">7+1 Seater • AC</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="flex flex-col items-end mb-3">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" id="crysta-spinner"></div>
+                                            <p class="text-2xl font-bold text-gray-900" id="crysta-fare"></p>
+                                        </div>
+                                        <p class="text-xs text-gray-500" id="crysta-calculating">Calculating fare...</p>
+                                    </div>
+                                </div>
+                                <button class="bg-green-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-green-700 transition-colors">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tempo Traveller AC -->
+                        <div class="vehicle-card bg-white rounded-xl shadow-sm border-2 border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer" data-vehicle="Tempo Traveller AC" data-price="19">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                    <img src="Vehicles/TempTraveller.jpg" alt="Tempo Traveller AC" class="w-full h-full object-cover">
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900">Tempo Traveller AC</h3>
+                                    <p class="text-sm text-gray-600">12+1 Seater • AC</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="flex flex-col items-end mb-3">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" id="tempo-ac-spinner"></div>
+                                            <p class="text-2xl font-bold text-gray-900" id="tempo-ac-fare"></p>
+                                        </div>
+                                        <p class="text-xs text-gray-500" id="tempo-ac-calculating">Calculating fare...</p>
+                                    </div>
+                                </div>
+                                <button class="bg-green-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-green-700 transition-colors">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tempo Traveller Non-AC -->
+                        <div class="vehicle-card bg-white rounded-xl shadow-sm border-2 border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer" data-vehicle="Tempo Traveller Non-AC" data-price="16">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                    <img src="Vehicles/TempTraveller.jpg" alt="Tempo Traveller Non-AC" class="w-full h-full object-cover">
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900">Tempo Traveller Non-AC</h3>
+                                    <p class="text-sm text-gray-600">12+1 Seater • Non-AC</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="flex flex-col items-end mb-3">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" id="tempo-nonac-spinner"></div>
+                                            <p class="text-2xl font-bold text-gray-900" id="tempo-nonac-fare"></p>
+                                        </div>
+                                        <p class="text-xs text-gray-500" id="tempo-nonac-calculating">Calculating fare...</p>
+                                    </div>
+                                </div>
+                                <button class="bg-green-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-green-700 transition-colors">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Selection Preview -->
+                    <div id="selectionPreview" class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200 hidden">
+                        <p class="text-sm text-blue-800 text-center">
+                            <i class="fas fa-car mr-2"></i>
+                            <span id="selectedVehicleText">You selected Maruti Ertiga (₹ 1263)</span>
+                        </p>
+                    </div>
+                    
+                    <!-- Confirm Button -->
+                    <div class="text-center mt-6">
+                        <button id="confirmBooking" class="w-full bg-gray-400 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                            <i class="fas fa-check mr-2"></i>Confirm Booking
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Confirmation (Hidden by default) -->
+                <div id="step3-content" class="hidden">
+                    <div class="text-center">
+                        <!-- Success State -->
+                        <div id="success-message" class="hidden">
+                            <div class="mb-6">
+                                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-check text-green-600 text-2xl"></i>
+                                </div>
+                                <h3 class="text-2xl font-bold text-gray-900 mb-2">Booking Confirmed!</h3>
+                                <p class="text-gray-600 mb-6">Your booking has been successfully saved to our system.</p>
+                                
+                                <!-- Action Buttons -->
+                                <div class="flex justify-center space-x-4">
+                                    <button id="continueBtn" class="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-700 transition-colors">
+                                        Continue
+                                    </button>
+                                    <button id="bookAgainBtn" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors">
+                                        Book Again
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Error State -->
+                        <div id="error-message" class="hidden">
+                            <div class="mb-6">
+                                <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+                                </div>
+                                <h3 class="text-2xl font-bold text-gray-900 mb-2">Booking Failed</h3>
+                                <p class="text-gray-600 mb-6">Sorry, we couldn't process your booking. Please try contacting us directly.</p>
+                                
+                                <!-- Contact Options -->
+                                <div class="flex justify-center space-x-6">
+                                    <a href="tel:+919876543210" class="flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+                                        <i class="fas fa-phone"></i>
+                                        <span>Call Us</span>
+                                    </a>
+                                    <a href="https://wa.me/919876543210" target="_blank" class="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors">
+                                        <i class="fab fa-whatsapp"></i>
+                                        <span>WhatsApp</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div id="loading-message" class="hidden">
+                            <div class="mb-6">
+                                <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                </div>
+                                <h3 class="text-2xl font-bold text-gray-900 mb-2">Processing Booking...</h3>
+                                <p class="text-gray-600">Please wait while we save your booking details.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Vehicle Selection Modal - Modern Mobile App Style -->
+    <div id="vehicleModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden flex flex-col">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-t-2xl">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-xl font-bold">Step 2 of 3 — Choose Your Ride</h3>
+                        <button id="closeVehicleModal" class="text-white hover:text-gray-200">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    <p class="text-blue-100 text-sm mt-1">Select your preferred vehicle for the trip</p>
+                </div>
+                
+                <!-- Vehicle List -->
+                <div class="flex-1 overflow-y-auto">
+                    <div class="space-y-3 p-4">
+                        <!-- Sedan -->
+                        <div class="vehicle-card bg-white rounded-xl shadow-sm border-2 border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer" data-vehicle="Sedan" data-price="16">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                    <img src="Vehicles/Sedan.png" alt="Sedan" class="w-full h-full object-cover">
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900">Sedan</h3>
+                                    <p class="text-sm text-gray-600">4+1 Seater • AC</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="flex flex-col items-end mb-3">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" id="sedan-spinner"></div>
+                                            <p class="text-2xl font-bold text-gray-900" id="sedan-fare"></p>
+                                        </div>
+                                        <p class="text-xs text-gray-500" id="sedan-calculating">Calculating fare...</p>
+                                    </div>
+                                </div>
+                                <button class="bg-green-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-green-700 transition-colors">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+
+                        
+
+                        <!-- Maruti Ertiga -->
+                        <div class="vehicle-card bg-white rounded-xl shadow-sm border-2 border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer" data-vehicle="Maruti Ertiga AC" data-price="15">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                    <img src="Vehicles/ErtigaSUV.jpg" alt="Maruti Ertiga" class="w-full h-full object-cover">
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900">Maruti Ertiga</h3>
+                                    <p class="text-sm text-gray-600">6+1 Seater • AC</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="flex flex-col items-end mb-3">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" id="ertiga-spinner"></div>
+                                            <p class="text-2xl font-bold text-gray-900" id="ertiga-fare"></p>
+                                        </div>
+                                        <p class="text-xs text-gray-500" id="ertiga-calculating">Calculating fare...</p>
+                                    </div>
+                                </div>
+                                <button class="bg-green-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-green-700 transition-colors">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Toyota Innova -->
+                        <div class="vehicle-card bg-white rounded-xl shadow-sm border-2 border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer" data-vehicle="Toyota Innova AC" data-price="16">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                    <img src="Vehicles/ToyataInnova.png" alt="Toyota Innova" class="w-full h-full object-cover">
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900">Toyota Innova</h3>
+                                    <p class="text-sm text-gray-600">7+1 Seater • AC</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="flex flex-col items-end mb-3">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" id="innova-spinner"></div>
+                                            <p class="text-2xl font-bold text-gray-900" id="innova-fare"></p>
+                                        </div>
+                                        <p class="text-xs text-gray-500" id="innova-calculating">Calculating fare...</p>
+                                    </div>
+                                </div>
+                                <button class="bg-green-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-green-700 transition-colors">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Toyota Innova Crysta -->
+                        <div class="vehicle-card bg-white rounded-xl shadow-sm border-2 border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer" data-vehicle="Toyota Innova Crysta AC" data-price="17">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                    <img src="Vehicles/ToyataInnovaCrysta.png" alt="Toyota Innova Crysta" class="w-full h-full object-cover">
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900">Innova Crysta</h3>
+                                    <p class="text-sm text-gray-600">7+1 Seater • AC</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="flex flex-col items-end mb-3">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" id="crysta-spinner"></div>
+                                            <p class="text-2xl font-bold text-gray-900" id="crysta-fare"></p>
+                                        </div>
+                                        <p class="text-xs text-gray-500" id="crysta-calculating">Calculating fare...</p>
+                                    </div>
+                                </div>
+                                <button class="bg-green-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-green-700 transition-colors">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tempo Traveller AC -->
+                        <div class="vehicle-card bg-white rounded-xl shadow-sm border-2 border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer" data-vehicle="Tempo Traveller AC" data-price="19">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                    <img src="Vehicles/TempTraveller.jpg" alt="Tempo Traveller AC" class="w-full h-full object-cover">
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900">Tempo Traveller AC</h3>
+                                    <p class="text-sm text-gray-600">12+1 Seater • AC</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="flex flex-col items-end mb-3">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" id="tempo-ac-spinner"></div>
+                                            <p class="text-2xl font-bold text-gray-900" id="tempo-ac-fare"></p>
+                                        </div>
+                                        <p class="text-xs text-gray-500" id="tempo-ac-calculating">Calculating fare...</p>
+                                    </div>
+                                </div>
+                                <button class="bg-green-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-green-700 transition-colors">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Tempo Traveller Non-AC -->
+                        <div class="vehicle-card bg-white rounded-xl shadow-sm border-2 border-gray-200 p-4 hover:shadow-md hover:border-blue-300 transition-all cursor-pointer" data-vehicle="Tempo Traveller Non-AC" data-price="16">
+                            <div class="flex items-center space-x-4">
+                                <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
+                                    <img src="Vehicles/TempTraveller.jpg" alt="Tempo Traveller Non-AC" class="w-full h-full object-cover">
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-bold text-gray-900">Tempo Traveller Non-AC</h3>
+                                    <p class="text-sm text-gray-600">12+1 Seater • Non-AC</p>
+                                </div>
+                                <div class="text-right">
+                                    <div class="flex flex-col items-end mb-3">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" id="tempo-nonac-spinner"></div>
+                                            <p class="text-2xl font-bold text-gray-900" id="tempo-nonac-fare"></p>
+                                        </div>
+                                        <p class="text-xs text-gray-500" id="tempo-nonac-calculating">Calculating fare...</p>
+                                    </div>
+                                </div>
+                                <button class="bg-green-600 text-white px-6 py-2 rounded-xl font-semibold hover:bg-green-700 transition-colors">
+                                    Select
+                                </button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                
+                <!-- Footer -->
+                <div class="bg-gray-50 p-6 rounded-b-2xl flex-shrink-0">
+                    <!-- Selection Preview -->
+                    <div id="selectionPreview" class="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200 hidden">
+                        <p class="text-sm text-blue-800">
+                            <i class="fas fa-car mr-2"></i>
+                            <span id="selectedVehicleText">You selected Maruti Ertiga (₹1263)</span>
+                        </p>
+                    </div>
+                    
+                    <button id="confirmBooking" class="w-full bg-gray-400 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                        <i class="fas fa-check mr-2"></i>Confirm Booking
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact Section -->
+    <section id="contact" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">Contact Us</h2>
+                <p class="text-xl text-gray-600">Get in touch with us for your travel needs</p>
+            </div>
+            
+            <div class="grid md:grid-cols-3 gap-8 text-center">
+                <div class="bg-primary text-white rounded-xl p-8">
+                    <i class="fas fa-phone text-4xl mb-4"></i>
+                    <h3 class="text-xl font-bold mb-2">Call Us</h3>
+                    <p class="text-lg">9008888844</p>
+                    <a href="tel:9008888844" class="inline-block mt-4 bg-white text-primary px-6 py-2 rounded-lg hover:bg-gray-100 transition">
+                        Call Now
+                    </a>
+                </div>
+                
+                <div class="bg-green-600 text-white rounded-xl p-8">
+                    <i class="fab fa-whatsapp text-4xl mb-4"></i>
+                    <h3 class="text-xl font-bold mb-2">WhatsApp</h3>
+                    <p class="text-lg">9008888844</p>
+                    <a href="https://wa.me/9008888844" target="_blank" class="inline-block mt-4 bg-white text-green-600 px-6 py-2 rounded-lg hover:bg-gray-100 transition">
+                        Chat Now
+                    </a>
+                </div>
+                
+                <div class="bg-gray-800 text-white rounded-xl p-8">
+                    <i class="fas fa-clock text-4xl mb-4"></i>
+                    <h3 class="text-xl font-bold mb-2">Service Hours</h3>
+                    <p class="text-lg">24/7 Available</p>
+                    <p class="text-sm mt-2">Round the clock service</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section class="py-20 bg-gray-50">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">What Our Customers Say</h2>
+                <p class="text-xl text-gray-600">Trusted by thousands of satisfied customers in Bangalore</p>
+            </div>
+            
+            <div class="grid md:grid-cols-3 gap-8">
+                <!-- Testimonial 1 -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="flex text-yellow-400">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 mb-4">"Excellent service! Driver was on time and the car was very clean. Will definitely book again for my next trip."</p>
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-bold">
+                            R
+                        </div>
+                        <div class="ml-3">
+                            <h4 class="font-semibold text-gray-900">Rajesh Kumar</h4>
+                            <p class="text-sm text-gray-500">Koramangala</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Testimonial 2 -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="flex text-yellow-400">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 mb-4">"Great experience! Professional drivers and well-maintained vehicles. Perfect for airport transfers and outstation trips."</p>
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-bold">
+                            P
+                        </div>
+                        <div class="ml-3">
+                            <h4 class="font-semibold text-gray-900">Priya Sharma</h4>
+                            <p class="text-sm text-gray-500">Whitefield</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Testimonial 3 -->
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="flex text-yellow-400">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                    </div>
+                    <p class="text-gray-600 mb-4">"Reliable and affordable! Used their services for multiple trips. Highly recommended for family travel."</p>
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white font-bold">
+                            M
+                        </div>
+                        <div class="ml-3">
+                            <h4 class="font-semibold text-gray-900">Manjunath Reddy</h4>
+                            <p class="text-sm text-gray-500">Jayanagar</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Section -->
+    <section class="py-20 bg-white">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="text-4xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h2>
+                <p class="text-xl text-gray-600">Got questions? We've got answers!</p>
+                <button onclick="openFAQForm()" class="mt-4 bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition flex items-center mx-auto">
+                    <i class="fas fa-question-circle mr-2"></i>
+                    Ask a Question
+                </button>
+            </div>
+            
+            <div class="grid gap-6">
+                <!-- FAQ 1 -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-8 hover:shadow-xl transition-shadow">
+                    <div class="flex items-start space-x-4">
+                        <div class="flex-shrink-0 w-12 h-12 bg-primary rounded-full flex items-center justify-center">
+                            <i class="fas fa-car text-white text-lg"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-xl font-bold text-gray-900 mb-4">How do I book a ride?</h3>
+                            <div class="space-y-3 text-gray-700">
+                                <p class="text-lg leading-relaxed">You can book your ride in three convenient ways:</p>
+                                <div class="grid md:grid-cols-3 gap-4 mt-4">
+                                    <div class="bg-blue-50 rounded-lg p-4 text-center">
+                                        <i class="fas fa-laptop text-2xl text-blue-600 mb-2"></i>
+                                        <h4 class="font-semibold text-gray-900">Website Form</h4>
+                                        <p class="text-sm text-gray-600">Fill out our online booking form</p>
+                                    </div>
+                                    <div class="bg-green-50 rounded-lg p-4 text-center">
+                                        <i class="fas fa-phone text-2xl text-green-600 mb-2"></i>
+                                        <h4 class="font-semibold text-gray-900">Direct Call</h4>
+                                        <p class="text-sm text-gray-600">Call us at <strong>9008888844</strong></p>
+                                    </div>
+                                    <div class="bg-emerald-50 rounded-lg p-4 text-center">
+                                        <i class="fab fa-whatsapp text-2xl text-emerald-600 mb-2"></i>
+                                        <h4 class="font-semibold text-gray-900">WhatsApp</h4>
+                                        <p class="text-sm text-gray-600">Chat with us instantly</p>
+                                    </div>
+                                </div>
+                                <div class="bg-green-100 border-l-4 border-green-500 p-4 rounded-r-lg mt-4">
+                                    <p class="text-green-800 font-medium">
+                                        <i class="fas fa-clock mr-2"></i>
+                                        We'll confirm your booking within 15 minutes!
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ 2 -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-8 hover:shadow-xl transition-shadow">
+                    <div class="flex items-start space-x-4">
+                        <div class="flex-shrink-0 w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-times text-white text-lg"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-xl font-bold text-gray-900 mb-4">What is your cancellation policy?</h3>
+                            <div class="bg-green-100 border-l-4 border-green-500 p-4 rounded-r-lg">
+                                <p class="text-green-800 text-lg font-medium">
+                                    <i class="fas fa-check-circle mr-2"></i>
+                                    We accept cancellation at any time with no charges!
+                                </p>
+                                <p class="text-green-700 mt-2">Simply contact us to cancel your booking.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ 3 -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-8 hover:shadow-xl transition-shadow">
+                    <div class="flex items-start space-x-4">
+                        <div class="flex-shrink-0 w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-calculator text-white text-lg"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-xl font-bold text-gray-900 mb-4">How do you calculate the fare?</h3>
+                            <div class="space-y-3 text-gray-700">
+                                <p class="text-lg">Our fares are calculated based on:</p>
+                                <ul class="space-y-2 ml-4">
+                                    <li class="flex items-center">
+                                        <i class="fas fa-arrow-right text-primary mr-3"></i>
+                                        <span>Distance traveled (per kilometer rate)</span>
+                                    </li>
+                                    <li class="flex items-center">
+                                        <i class="fas fa-arrow-right text-primary mr-3"></i>
+                                        <span>Applicable toll charges</span>
+                                    </li>
+                                    <li class="flex items-center">
+                                        <i class="fas fa-arrow-right text-primary mr-3"></i>
+                                        <span>Driver bata (included in quoted price)</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ 4 -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-8 hover:shadow-xl transition-shadow">
+                    <div class="flex items-start space-x-4">
+                        <div class="flex-shrink-0 w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-map-marked-alt text-white text-lg"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-xl font-bold text-gray-900 mb-4">Do you provide outstation services?</h3>
+                            <div class="bg-blue-100 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                                <p class="text-blue-800 text-lg font-medium">
+                                    <i class="fas fa-check-circle mr-2"></i>
+                                    Yes! We provide outstation services to all major cities in India
+                                </p>
+                                <p class="text-blue-700 mt-2">Our drivers are experienced and familiar with long-distance routes.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ 5 -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-8 hover:shadow-xl transition-shadow">
+                    <div class="flex items-start space-x-4">
+                        <div class="flex-shrink-0 w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-credit-card text-white text-lg"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-xl font-bold text-gray-900 mb-4">What payment methods do you accept?</h3>
+                            <div class="space-y-3 text-gray-700">
+                                <p class="text-lg mb-4">We accept multiple payment methods:</p>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                        <i class="fas fa-money-bill-wave text-2xl text-green-600 mb-2"></i>
+                                        <span class="text-sm font-medium">Cash</span>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                        <i class="fas fa-mobile-alt text-2xl text-blue-600 mb-2"></i>
+                                        <span class="text-sm font-medium">UPI</span>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                        <i class="fas fa-credit-card text-2xl text-purple-600 mb-2"></i>
+                                        <span class="text-sm font-medium">Cards</span>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                        <i class="fas fa-university text-2xl text-orange-600 mb-2"></i>
+                                        <span class="text-sm font-medium">Online Transfer</span>
+                                    </div>
+                                </div>
+                                <div class="bg-blue-100 border-l-4 border-blue-500 p-4 rounded-r-lg mt-4">
+                                    <p class="text-blue-800 font-medium">
+                                        <i class="fas fa-info-circle mr-2"></i>
+                                        Payment is made after the journey completion
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ 6 -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-100 p-8 hover:shadow-xl transition-shadow">
+                    <div class="flex items-start space-x-4">
+                        <div class="flex-shrink-0 w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center">
+                            <i class="fas fa-shield-alt text-white text-lg"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-xl font-bold text-gray-900 mb-4">Are your vehicles insured and licensed?</h3>
+                            <div class="space-y-4 text-gray-700">
+                                <div class="grid md:grid-cols-2 gap-4">
+                                    <div class="bg-green-50 rounded-lg p-4">
+                                        <h4 class="font-semibold text-green-800 mb-2">
+                                            <i class="fas fa-car mr-2"></i>Vehicles
+                                        </h4>
+                                        <ul class="text-sm text-green-700 space-y-1">
+                                            <li>✓ Properly insured</li>
+                                            <li>✓ Licensed and registered</li>
+                                            <li>✓ Regularly maintained</li>
+                                        </ul>
+                                    </div>
+                                    <div class="bg-blue-50 rounded-lg p-4">
+                                        <h4 class="font-semibold text-blue-800 mb-2">
+                                            <i class="fas fa-user mr-2"></i>Drivers
+                                        </h4>
+                                        <ul class="text-sm text-blue-700 space-y-1">
+                                            <li>✓ Experienced professionals</li>
+                                            <li>✓ Valid commercial licenses</li>
+                                            <li>✓ Background verified</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQ Form Modal -->
+    <div id="faqModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-2xl font-bold text-gray-900">Ask a Question</h3>
+                        <button onclick="closeFAQForm()" class="text-gray-400 hover:text-gray-600">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <form id="faqForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Your Name *</label>
+                            <input type="text" name="name" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+                            <input type="email" name="email" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                            <input type="tel" name="phone" pattern="[0-9]{10}" maxlength="10" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="9876543210">
+                            <p class="text-xs text-gray-500 mt-1">Enter 10-digit mobile number</p>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Subject *</label>
+                            <select name="subject" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+                                <option value="">Select a subject</option>
+                                <option value="Booking Inquiry">Booking Inquiry</option>
+                                <option value="Pricing Question">Pricing Question</option>
+                                <option value="Vehicle Information">Vehicle Information</option>
+                                <option value="Cancellation Policy">Cancellation Policy</option>
+                                <option value="Outstation Services">Outstation Services</option>
+                                <option value="Technical Issue">Technical Issue</option>
+                                <option value="Feedback">Feedback</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Your Question *</label>
+                            <textarea name="question" required rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Please describe your question in detail..."></textarea>
+                        </div>
+                        
+                        <div class="flex space-x-3 pt-4">
+                            <button type="submit" class="flex-1 bg-primary text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition">
+                                <i class="fas fa-paper-plane mr-2"></i>Submit Question
+                            </button>
+                            <button type="button" onclick="closeFAQForm()" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-logoBlue text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <div class="flex justify-center mb-6">
+                    <div class="flex items-center space-x-3">
+                        <!-- VM Travels Logo -->
+                        <div class="relative">
+                            <div class="w-16 h-16 bg-primary text-white rounded-xl flex items-center justify-center font-bold text-xl shadow-lg">VM</div>
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-bold">VM Travels</h3>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-gray-400 mb-6">Your trusted partner for comfortable and reliable travel</p>
+                
+                <!-- Contact Information -->
+                <div class="grid md:grid-cols-3 gap-8 mb-8">
+                    <div class="text-center">
+                        <i class="fas fa-map-marker-alt text-2xl mb-3 text-secondary"></i>
+                        <h4 class="font-semibold mb-2">Address</h4>
+                        <p class="text-gray-400 text-sm">
+                            123, Brigade Road,<br>
+                            Bangalore - 560001,<br>
+                            Karnataka, India
+                        </p>
+                    </div>
+                    <div class="text-center">
+                        <i class="fas fa-envelope text-2xl mb-3 text-secondary"></i>
+                        <h4 class="font-semibold mb-2">Email</h4>
+                        <p class="text-gray-400 text-sm">
+                            info@vmtravels.com<br>
+                            bookings@vmtravels.com
+                        </p>
+                    </div>
+                    <div class="text-center">
+                        <i class="fas fa-clock text-2xl mb-3 text-secondary"></i>
+                        <h4 class="font-semibold mb-2">Business Hours</h4>
+                        <p class="text-gray-400 text-sm">
+                            24/7 Service Available<br>
+                            Emergency: 9008888844
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex justify-center space-x-6 mb-6">
+                    <a href="tel:9008888844" class="text-gray-400 hover:text-white transition">
+                        <i class="fas fa-phone mr-2"></i>9008888844
+                    </a>
+                    <a href="https://wa.me/9008888844" target="_blank" class="text-gray-400 hover:text-white transition">
+                        <i class="fab fa-whatsapp mr-2"></i>WhatsApp
+                    </a>
+                    <a href="mailto:info@vmtravels.com" class="text-gray-400 hover:text-white transition">
+                        <i class="fas fa-envelope mr-2"></i>Email Us
+                    </a>
+                </div>
+                <p class="text-gray-500 mt-6">&copy; 2024 VM Travels. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Floating WhatsApp Button -->
+    <div id="floating-whatsapp" class="fixed bottom-6 right-6 z-50">
+        <a href="https://wa.me/9008888844?text=Hi%20VM%20Travels%2C%20I%20want%20to%20book%20a%20ride" target="_blank" class="bg-green-500 hover:bg-green-600 text-white p-4 rounded-full shadow-lg transition-all duration-300 hover:scale-110">
+            <i class="fab fa-whatsapp text-2xl"></i>
+        </a>
+    </div>
+
+    <!-- <script src="bangalore_locations_generator.js"></script> -->
+    <!-- <script src="all-india-locations.js"></script> -->
+    <!-- <script src="google-maps-config.js"></script> -->
+    <!-- <script src="location-search.js"></script> -->
+    <script src="script.js"></script>
+    
+    <!-- New Booking Form JavaScript -->
+    <script>
+        // Function to initialize required attributes for active tab only
+        function initializeRequiredAttributes(activeTab) {
+            // Remove required from ALL tab fields first
+            const allTabFields = document.querySelectorAll('.tab-content input[data-required], .tab-content select[data-required]');
+            allTabFields.forEach(input => {
+                input.removeAttribute('required');
+            });
+            
+            // Add required back only to active tab fields
+            const activeTabElement = document.getElementById(activeTab + '-tab');
+            if (activeTabElement) {
+                const activeTabFields = activeTabElement.querySelectorAll('input[data-required], select[data-required]');
+                activeTabFields.forEach(input => {
+                    input.setAttribute('required', '');
+                });
+                console.log('Initialized required attributes for', activeTab, 'tab:', activeTabFields.length, 'fields');
+            }
+        }
+        
+        // Tab Switching Functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            // Initialize time dropdowns
+            initializeTimeDropdowns();
+            
+            // Set initial active tab
+            document.getElementById('activeTab').value = 'local';
+            console.log('Initial active tab set to: local');
+            
+            // Initialize required attributes for active tab only
+            initializeRequiredAttributes('local');
+            
+            // Tab switching
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const targetTab = this.getAttribute('data-tab');
+                    
+                    // Remove active class from all tabs
+                    tabButtons.forEach(btn => {
+                        btn.classList.remove('active', 'border-green-500', 'bg-green-50', 'text-green-700');
+                        btn.classList.add('text-gray-600');
+                    });
+                    
+                    // Hide all tab contents
+                    tabContents.forEach(content => {
+                        content.classList.add('hidden');
+                    });
+                    
+                    // Show selected tab content
+                    document.getElementById(targetTab + '-tab').classList.remove('hidden');
+                    
+                    // Add active class to clicked tab
+                    this.classList.add('active', 'border-green-500', 'bg-green-50', 'text-green-700');
+                    this.classList.remove('text-gray-600');
+                    
+                    // Update hidden input for active tab
+                    document.getElementById('activeTab').value = targetTab;
+                    console.log('Tab switched to:', targetTab, 'activeTab input value set to:', document.getElementById('activeTab').value);
+                    
+                    // Update required attributes for new active tab
+                    initializeRequiredAttributes(targetTab);
+                });
+            });
+            
+            // Trip type switching for outstation tab
+            const tripTypeRadios = document.querySelectorAll('input[name="tripType"]');
+            const onewayFields = document.getElementById('oneway-fields');
+            const roundtripFields = document.getElementById('roundtrip-fields');
+            
+            tripTypeRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === 'oneway') {
+                        onewayFields.classList.remove('hidden');
+                        roundtripFields.classList.add('hidden');
+                        // Make oneway fields required
+                        document.querySelectorAll('#oneway-fields input, #oneway-fields select').forEach(field => {
+                            field.required = true;
+                        });
+                        // Make roundtrip fields not required and clear values
+                        document.querySelectorAll('#roundtrip-fields input, #roundtrip-fields select').forEach(field => {
+                            field.required = false;
+                            field.value = '';
+                        });
+                    } else {
+                        onewayFields.classList.add('hidden');
+                        roundtripFields.classList.remove('hidden');
+                        // Make roundtrip fields required
+                        document.querySelectorAll('#roundtrip-fields input, #roundtrip-fields select').forEach(field => {
+                            field.required = true;
+                        });
+                        // Make oneway fields not required and clear values
+                        document.querySelectorAll('#oneway-fields input, #oneway-fields select').forEach(field => {
+                            field.required = false;
+                            field.value = '';
+                        });
+                    }
+                    document.getElementById('tripTypeHidden').value = this.value;
+                });
+            });
+            
+            // Initialize trip type
+            document.getElementById('tripTypeHidden').value = 'oneway';
+            
+            // Handle "Other" option for location dropdowns
+            setupLocationDropdowns();
+            
+            // Vehicle modal is now handled by script.js
+        });
+        
+        // Setup location dropdowns with "Other" option handling
+        function setupLocationDropdowns() {
+            const locationSelects = [
+                { select: 'pickupLocation', other: 'pickupOther' },
+                { select: 'dropLocation', other: 'dropOther' },
+                { select: 'outstationPickupLocation', other: 'outstationPickupOther' },
+                { select: 'outstationDropLocation', other: 'outstationDropOther' },
+                { select: 'packagePickupLocation', other: 'packagePickupOther' }
+            ];
+            
+            locationSelects.forEach(({ select, other }) => {
+                const selectElement = document.getElementById(select);
+                const otherElement = document.getElementById(other);
+                
+                if (selectElement && otherElement) {
+                    selectElement.addEventListener('change', function() {
+                        if (this.value === 'Other') {
+                            otherElement.classList.remove('hidden');
+                            otherElement.querySelector('input').required = true;
+                        } else {
+                            otherElement.classList.add('hidden');
+                            otherElement.querySelector('input').required = false;
+                            otherElement.querySelector('input').value = '';
+                        }
+                    });
+                }
+            });
+        }
+        
+        // Initialize time dropdowns
+        function initializeTimeDropdowns() {
+            const timeSelects = document.querySelectorAll('select[name="hour"], select[name="onewayHour"], select[name="roundtripHour"], select[name="packageHour"]');
+            const minuteSelects = document.querySelectorAll('select[name="minute"], select[name="onewayMinute"], select[name="roundtripMinute"], select[name="packageMinute"]');
+            const periodSelects = document.querySelectorAll('select[name="period"], select[name="onewayPeriod"], select[name="roundtripPeriod"], select[name="packagePeriod"]');
+            
+            // Populate hour dropdowns (1-12)
+            timeSelects.forEach(select => {
+                select.innerHTML = '<option value="">Hour</option>';
+                for (let i = 1; i <= 12; i++) {
+                    const option = document.createElement('option');
+                    option.value = i;
+                    option.textContent = i;
+                    select.appendChild(option);
+                }
+            });
+            
+            // Populate minute dropdowns (00, 15, 30, 45)
+            minuteSelects.forEach(select => {
+                select.innerHTML = '<option value="">Min</option>';
+                const minutes = ['00', '15', '30', '45'];
+                minutes.forEach(minute => {
+                    const option = document.createElement('option');
+                    option.value = minute;
+                    option.textContent = minute;
+                    select.appendChild(option);
+                });
+            });
+            
+            // Populate period dropdowns (AM/PM)
+            periodSelects.forEach(select => {
+                select.innerHTML = '<option value="">AM/PM</option>';
+                const periods = ['AM', 'PM'];
+                periods.forEach(period => {
+                    const option = document.createElement('option');
+                    option.value = period;
+                    option.textContent = period;
+                    select.appendChild(option);
+                });
+            });
+        }
+        
+        // Form submission is now handled by script.js
+        
+        // Vehicle modal functions are now handled by script.js
+        
+        // Google Form redirect and notification functions are now handled by script.js
+    </script>
+    
+    <!-- FAQ Form JavaScript -->
+    <script>
+        // FAQ Form Modal Functions
+        function openFAQForm() {
+            document.getElementById('faqModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeFAQForm() {
+            document.getElementById('faqModal').classList.add('hidden');
+            document.body.style.overflow = 'auto';
+        }
+        
+        // Close modal when clicking outside
+        document.getElementById('faqModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeFAQForm();
+            }
+        });
+        
+        // FAQ Form Google Sheets Integration
+        document.getElementById('faqForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const data = {
+                name: formData.get('name'),
+                email: formData.get('email'),
+                phone: formData.get('phone'),
+                subject: formData.get('subject'),
+                question: formData.get('question'),
+                timestamp: new Date().toLocaleString('en-IN')
+            };
+            
+            // Show loading state
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Submitting...';
+            submitBtn.disabled = true;
+            
+            // Submit to Google Form (FAQ Questions)
+            const FAQ_GOOGLE_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSf3N6QAkmu9idNk5-Z0BoRNnE3_n2EIT5dkSlyglMapRQ0ABA/formResponse';
+            const FAQ_FORM_ENTRIES = {
+                name: 'entry.1383993776', // Your Name
+                email: 'entry.524502135', // Email Address
+                phone: 'entry.1718378873', // Phone Number
+                subject: 'entry.317411956', // Subject
+                question: 'entry.1971052432' // Your Question
+            };
+            
+            // Create form data for Google Forms
+            const googleFormData = new URLSearchParams();
+            googleFormData.append(FAQ_FORM_ENTRIES.name, data.name);
+            googleFormData.append(FAQ_FORM_ENTRIES.email, data.email);
+            googleFormData.append(FAQ_FORM_ENTRIES.phone, data.phone);
+            googleFormData.append(FAQ_FORM_ENTRIES.subject, data.subject);
+            googleFormData.append(FAQ_FORM_ENTRIES.question, data.question);
+            
+            // GUARANTEED WORKING: Submit to Google Forms using fetch with proper encoding
+            const submitData = async () => {
+                try {
+                    // Create properly encoded form data
+                    const formBody = new URLSearchParams();
+                    formBody.append(FAQ_FORM_ENTRIES.name, data.name);
+                    formBody.append(FAQ_FORM_ENTRIES.email, data.email);
+                    formBody.append(FAQ_FORM_ENTRIES.phone, data.phone || '');
+                    formBody.append(FAQ_FORM_ENTRIES.subject, data.subject);
+                    formBody.append(FAQ_FORM_ENTRIES.question, data.question);
+                    
+                    // Submit with proper headers
+                    const response = await fetch(FAQ_GOOGLE_FORM_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: formBody.toString()
+                    });
+                    
+                    console.log('FAQ Form submitted successfully:', response);
+                    return true;
+                    
+                } catch (error) {
+                    console.error('FAQ Form submission error:', error);
+                    return false;
+                }
+            };
+            
+            // Execute the submission
+            submitData();
+            
+            // BACKUP METHOD: Also try with traditional form submission as fallback
+            setTimeout(() => {
+                const backupForm = document.createElement('form');
+                backupForm.method = 'POST';
+                backupForm.action = FAQ_GOOGLE_FORM_URL;
+                backupForm.style.display = 'none';
+                
+                // Add all fields to backup form
+                Object.keys(FAQ_FORM_ENTRIES).forEach(key => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = FAQ_FORM_ENTRIES[key];
+                    input.value = data[key] || '';
+                    backupForm.appendChild(input);
+                });
+                
+                document.body.appendChild(backupForm);
+                backupForm.submit();
+                document.body.removeChild(backupForm);
+            }, 100);
+            
+            // Show success message
+            showNotification('Thank you! Your question has been submitted. We\'ll get back to you within 24 hours.', 'success');
+            this.reset();
+            closeFAQForm();
+            
+            // Reset button state
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+        
+        // Notification function (reuse existing or create new)
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg transition-all duration-300 ${
+                type === 'success' ? 'bg-green-500 text-white' : 
+                type === 'error' ? 'bg-red-500 text-white' : 
+                'bg-blue-500 text-white'
+            }`;
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Remove notification after 5 seconds
+            setTimeout(() => {
+                notification.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
+

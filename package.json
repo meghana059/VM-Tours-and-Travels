@@ -1,0 +1,32 @@
+{
+  "name": "vm-travels-form-test",
+  "version": "1.0.0",
+  "description": "Automated test for VM Travels booking form submission to Google Forms",
+  "main": "test-form-submission.js",
+  "scripts": {
+    "test": "node test-form-submission.js",
+    "install-deps": "npm install puppeteer"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0"
+  },
+  "devDependencies": {},
+  "keywords": ["automation", "testing", "puppeteer", "forms"],
+  "author": "VM Travels Test Suite",
+  "license": "MIT"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

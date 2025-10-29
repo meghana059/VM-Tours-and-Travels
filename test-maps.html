@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Maps Test</title>
+</head>
+<body>
+    <h1>Google Maps API Test</h1>
+    <div id="status">Loading...</div>
+    <input type="text" id="location-input" placeholder="Type a location...">
+    
+    <script>
+        function initMap() {
+            document.getElementById('status').innerHTML = 'Google Maps loaded successfully!';
+            
+            // Test Places Autocomplete
+            const input = document.getElementById('location-input');
+            const autocomplete = new google.maps.places.Autocomplete(input, {
+                types: ['establishment', 'geocode'],
+                componentRestrictions: { country: 'in' }
+            });
+            
+            autocomplete.addListener('place_changed', function() {
+                const place = autocomplete.getPlace();
+                if (place.geometry) {
+                    document.getElementById('status').innerHTML = 
+                        'Location selected: ' + place.formatted_address;
+                }
+            });
+        }
+        
+        function showError() {
+            document.getElementById('status').innerHTML = 'Error loading Google Maps';
+        }
+    </script>
+    
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCvh94LjftZWU-eVM380sTSRqtfXkKyw-g&libraries=places&callback=initMap" async defer onerror="showError()"></script>
+</body>
+</html>
+
+
+
+
+
+
