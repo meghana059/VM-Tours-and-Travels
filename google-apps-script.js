@@ -191,7 +191,12 @@ function doPost(e) {
       const numberOfDays = calculateNumberOfDays(booking.startDate, booking.returnDate);
       console.log('Number of days:', numberOfDays);
       
-      const fareDetails = calculateFare(finalDistance, booking.vehicle, numberOfDays, booking.bookingType);
+      // Double distance for Outstation Round Trip
+      const adjustedDistance = (String(booking.bookingType).toLowerCase() === 'outstation' && String(booking.tripType).toLowerCase() === 'round trip')
+        ? (finalDistance * 2)
+        : finalDistance;
+
+      const fareDetails = calculateFare(adjustedDistance, booking.vehicle, numberOfDays, booking.bookingType);
       console.log('Fare calculation result:', fareDetails);
       
       // Add fare details to booking
@@ -562,6 +567,12 @@ function enforceSheetHeadersAndColumns(sheetId, tabName) {
     'Travel Time',
     'Package Type',
     'Return Date',
+    // Fare breakdown columns for transparency and reconciliation
+    'Distance (km)',
+    'Price Per Km',
+    'Number Of Days',
+    'Base Fare',
+    'Daily Charge',
     'Trip Fare'
   ];
 
@@ -580,7 +591,7 @@ function enforceSheetHeadersAndColumns(sheetId, tabName) {
     }
   }
 
-  // Delete extra columns beyond Trip Fare
+  // Delete extra columns beyond the last expected header
   var lastCol = sh.getLastColumn();
   var expectedCols = expectedHeaders.length;
   if (lastCol > expectedCols) {
@@ -593,8 +604,18 @@ function enforceSheetHeadersAndColumns(sheetId, tabName) {
     sh.getRange(2, 12, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat('yyyy-mm-dd');
     // Travel Time (col 13) as time
     sh.getRange(2, 13, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat('hh:mm');
-    // Trip Fare (col 16) as number/currency-like
-    sh.getRange(2, 16, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat('#,##0');
+    // Distance (km) (col 16) number
+    sh.getRange(2, 16, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat('#,##0.00');
+    // Price Per Km (col 17)
+    sh.getRange(2, 17, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat('#,##0.00');
+    // Number Of Days (col 18)
+    sh.getRange(2, 18, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat('0');
+    // Base Fare (col 19)
+    sh.getRange(2, 19, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat('#,##0');
+    // Daily Charge (col 20)
+    sh.getRange(2, 20, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat('#,##0');
+    // Trip Fare (col 21)
+    sh.getRange(2, 21, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat('#,##0');
   } catch (fmtErr) {
     console.warn('Failed to enforce number formats:', fmtErr);
   }
@@ -691,6 +712,12 @@ function appendDirectlyToSheet(b) {
       'Travel Time',
       'Package Type',
       'Return Date',         // Only used for outstation round trips
+      // Fare breakdown columns for clarity
+      'Distance (km)',
+      'Price Per Km',
+      'Number Of Days',
+      'Base Fare',
+      'Daily Charge',
       'Trip Fare'            // Total Fare - Final amount to be paid
     ]);
   }
@@ -717,11 +744,16 @@ function appendDirectlyToSheet(b) {
   // Force Local return date blank (avoid default date artifacts)
   const returnDateValue = (b.bookingType === 'Local') ? '' : (b.returnDate || '');
 
-  // Sanitize trip fare to a number, empty if invalid
+  // Sanitize numbers to proper numeric values, empty if invalid
   function toNumberOrEmpty(v) {
     var n = Number(v);
     return isFinite(n) && !isNaN(n) ? Math.round(n * 100) / 100 : '';
   }
+  const distanceValue = toNumberOrEmpty(b.distance);
+  const pricePerKmValue = toNumberOrEmpty(b.pricePerKm);
+  const daysValue = toNumberOrEmpty(b.numberOfDays);
+  const baseFareValue = toNumberOrEmpty(b.baseFare);
+  const dailyChargeValue = toNumberOrEmpty(b.dailyCharge);
   const tripFareValue = toNumberOrEmpty(b.totalFare || b.tripFare);
   
   sh.appendRow([
@@ -740,6 +772,12 @@ function appendDirectlyToSheet(b) {
     b.time || '',            // Travel Time (ALWAYS STORED)
     b.packageType || '',     // Package Type (already filtered in normalizeBooking)
     returnDateValue,         // Return Date (blank for local)
+    // Fare breakdown values
+    distanceValue,           // Distance (km)
+    pricePerKmValue,         // Price Per Km
+    daysValue,               // Number Of Days
+    baseFareValue,           // Base Fare
+    dailyChargeValue,        // Daily Charge
     tripFareValue            // Trip Fare - Total amount to be paid (sanitized)
   ]);
 
@@ -984,11 +1022,44 @@ function calculateFare(distance, vehicleType, numberOfDays, bookingType = 'Local
       totalFare: Math.round(totalFare * 100) / 100
     };
   } else if (normalizedBookingType === 'Outstation') {
-    // For outstation trips, use outstation pricing
-    const outstationRate = VEHICLE_PRICING.Outstation[vehicleType] || 11; // Default to Sedan rate if vehicle not found
-    baseFare = distance * outstationRate;
-    pricePerKm = outstationRate;
-    console.log('Outstation trip pricing - Distance:', distance, 'km, Rate:', outstationRate, 'per km, Base Fare:', baseFare);
+    // For outstation trips, use per-day formula: ((rate * dailyKmLimit) + bata) * days
+    const params = {
+      'Sedan': { ratePerKm: 11, dailyKmLimit: 250, bataPerDay: 300 },
+      'Maruti Ertiga AC': { ratePerKm: 14, dailyKmLimit: 300, bataPerDay: 400 },
+      'Toyota Innova AC': { ratePerKm: 16, dailyKmLimit: 300, bataPerDay: 400 },
+      'Toyota Innova Crysta AC': { ratePerKm: 17, dailyKmLimit: 300, bataPerDay: 400 },
+      'Tempo Traveller Non-AC': { ratePerKm: 17, dailyKmLimit: 300, bataPerDay: 500 },
+      'Tempo Traveller AC': { ratePerKm: 19, dailyKmLimit: 300, bataPerDay: 500 },
+      'Bus 21+1 Non-AC': { ratePerKm: 28, dailyKmLimit: 300, bataPerDay: 600 },
+      'Bus 21+1 AC': { ratePerKm: 31, dailyKmLimit: 300, bataPerDay: 600 }
+    }[vehicleType] || { ratePerKm: 11, dailyKmLimit: 250, bataPerDay: 300 };
+
+    pricePerKm = params.ratePerKm;
+    const basePerDayFare = (params.ratePerKm * params.dailyKmLimit);
+    const bataTotal = params.bataPerDay * numberOfDays;
+    baseFare = basePerDayFare * numberOfDays;
+    const totalFare = baseFare + bataTotal;
+
+    console.log('Outstation per-day pricing:', {
+      vehicleType: vehicleType,
+      ratePerKm: params.ratePerKm,
+      dailyKmLimit: params.dailyKmLimit,
+      bataPerDay: params.bataPerDay,
+      numberOfDays: numberOfDays,
+      basePerDayFare: basePerDayFare,
+      baseFare: baseFare,
+      bataTotal: bataTotal,
+      totalFare: totalFare
+    });
+
+    return {
+      distance: '',
+      pricePerKm: pricePerKm,
+      numberOfDays: numberOfDays,
+      baseFare: Math.round(baseFare * 100) / 100,
+      dailyCharge: Math.round(bataTotal * 100) / 100, // store bata under dailyCharge
+      totalFare: Math.round(totalFare * 100) / 100
+    };
   } else {
     // For package trips, use traditional per-km pricing
     pricePerKm = VEHICLE_PRICING[vehicleType] || 16; // Default to Sedan price if vehicle not found

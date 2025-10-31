@@ -903,32 +903,24 @@ function resetBookingFlow() {
 }
 
 function calculateTotalCost(vehicleName, rateOrFare) {
-    // Check if this is already a total fare (large number) or a rate per km (small number)
-    const isTotalFare = rateOrFare > 100; // If it's over 100, it's likely a total fare
-    
-    if (isTotalFare) {
-        // If it's already a total fare, return it directly
-        console.log(`Selection preview: ${vehicleName} - Using actual fare: ₹${rateOrFare}`);
-        return rateOrFare;
+    const activeTabButton = document.querySelector('.tab-button.active');
+    const activeTab = (activeTabButton ? activeTabButton.getAttribute('data-tab') : 'local') || 'local';
+    // Outstation: compute per-day fare from dates and parameters
+    if (activeTab.toLowerCase() === 'outstation') {
+        const p = OUTSTATION_PARAMS[vehicleName];
+        if (!p) return rateOrFare;
+        const days = getOutstationDays();
+        const basePerDay = (p.ratePerKm * p.dailyKmLimit) + p.bataPerDay;
+        const total = Math.round(basePerDay * days);
+        console.log(`Selection preview (Outstation): ${vehicleName} - ((₹${p.ratePerKm}×${p.dailyKmLimit})+₹${p.bataPerDay})×${days} = ₹${total}`);
+        return total;
     }
-    
-    // Otherwise, calculate from rate per km
-    if (!window.currentBookingData) {
-        return rateOrFare; // Fallback to rate if no booking data
-    }
-    
-    // Use the actual calculated distance from the fare calculation
+    // Already computed total
+    if (rateOrFare > 100) return rateOrFare;
+    if (!window.currentBookingData) return rateOrFare;
     const distance = window.currentBookingData.calculatedDistance;
-    
-    if (!distance) {
-        return rateOrFare; // Fallback to rate if no distance calculated
-    }
-    
-    // Calculate total cost: distance × rate per km
+    if (!distance) return rateOrFare;
     const totalCost = Math.round(distance * rateOrFare);
-    
-    console.log(`Selection preview calculation: ${vehicleName} - ${distance}km × ₹${rateOrFare}/km = ₹${totalCost}`);
-    
     return totalCost;
 }
 
@@ -1027,6 +1019,19 @@ function updateVehicleSelection(vehicleName, ratePerKm) {
         confirmBtn.classList.remove('disabled:bg-gray-400', 'disabled:cursor-not-allowed');
         confirmBtn.classList.add('bg-green-600', 'hover:bg-green-700');
         console.log('Confirm button enabled and styled');
+
+        // Bring the confirm button into view and highlight it so users know next step
+        try {
+            confirmBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            confirmBtn.focus({ preventScroll: true });
+            confirmBtn.classList.add('ring-4', 'ring-green-300');
+            setTimeout(() => {
+                confirmBtn.classList.remove('ring-4', 'ring-green-300');
+            }, 1500);
+            if (typeof showNotification === 'function') {
+                showNotification('Review fare and click Confirm to proceed.', 'info');
+            }
+        } catch (e) {}
     } else {
         console.error('Confirm button not found!');
     }
@@ -2013,6 +2018,32 @@ const VEHICLE_RATES = {
     }
 };
 
+// Outstation parameters per vehicle (rate/km, daily km limit, bata per day)
+const OUTSTATION_PARAMS = {
+    'Sedan': { ratePerKm: 11, dailyKmLimit: 250, bataPerDay: 300 },
+    'Maruti Ertiga AC': { ratePerKm: 14, dailyKmLimit: 300, bataPerDay: 400 },
+    'Toyota Innova AC': { ratePerKm: 16, dailyKmLimit: 300, bataPerDay: 400 },
+    'Toyota Innova Crysta AC': { ratePerKm: 17, dailyKmLimit: 300, bataPerDay: 400 },
+    'Tempo Traveller Non-AC': { ratePerKm: 17, dailyKmLimit: 300, bataPerDay: 500 },
+    'Tempo Traveller AC': { ratePerKm: 19, dailyKmLimit: 300, bataPerDay: 500 },
+    'Bus 21+1 Non-AC': { ratePerKm: 28, dailyKmLimit: 300, bataPerDay: 600 },
+    'Bus 21+1 AC': { ratePerKm: 31, dailyKmLimit: 300, bataPerDay: 600 }
+};
+
+function getOutstationDays() {
+    const tripTypeEl = document.querySelector('#outstation-tab input[name="tripType"]:checked');
+    const tripType = (tripTypeEl ? tripTypeEl.value : 'oneway') || 'oneway';
+    if (tripType === 'oneway') return 1;
+    const startEl = document.querySelector('#outstation-tab input[name="startDate"]');
+    const returnEl = document.querySelector('#outstation-tab input[name="returnDate"]');
+    const start = startEl && startEl.value ? new Date(startEl.value) : null;
+    const end = returnEl && returnEl.value ? new Date(returnEl.value) : null;
+    if (!start || !end || isNaN(start) || isNaN(end)) return 1;
+    const ms = end.getTime() - start.getTime();
+    const days = Math.ceil(ms / (1000 * 3600 * 24)) + 1;
+    return Math.max(1, days);
+}
+
 // Static package prices (fixed, no distance calculation)
 const PACKAGE_FIXED_PRICES = {
     'Sedan': 1995,
@@ -2069,6 +2100,53 @@ async function calculateDistanceAndUpdateFares() {
             if (calculatingElement) calculatingElement.classList.add('hidden');
         });
         return; // Do not calculate distance for package bookings
+    }
+
+    // For outstation: compute per-day fare from dates; do not use distance
+    if (bookingType.toLowerCase() === 'outstation') {
+        const days = getOutstationDays();
+        const currentRates = VEHICLE_RATES['Outstation'];
+        function setPolicyNote(fareId, html) {
+            const fareEl = document.getElementById(fareId);
+            if (!fareEl) return;
+            // Find container under the same price block to place the note
+            const priceBlock = fareEl.closest('.flex.items-center.space-x-2')?.parentElement; // the mb-3 wrapper
+            const existingId = fareId.replace('-fare', '-note');
+            let noteEl = document.getElementById(existingId);
+            if (!noteEl) {
+                noteEl = document.createElement('p');
+                noteEl.id = existingId;
+                noteEl.className = 'text-xs text-gray-500 mt-1';
+                // Append under the small calculating line's container
+                if (priceBlock) {
+                    priceBlock.appendChild(noteEl);
+                } else {
+                    fareEl.parentElement?.appendChild(noteEl);
+                }
+            }
+            noteEl.innerHTML = html;
+        }
+        Object.entries(currentRates).forEach(([vehicleName, rate]) => {
+            const p = OUTSTATION_PARAMS[vehicleName];
+            const basePerDay = (p.ratePerKm * p.dailyKmLimit) + p.bataPerDay;
+            const totalFare = Math.round(basePerDay * days);
+            const fareId = VEHICLE_FARE_IDS[vehicleName];
+            const fareElement = document.getElementById(fareId);
+            const spinnerId = fareId?.replace('-fare', '-spinner');
+            const calculatingId = fareId?.replace('-fare', '-calculating');
+            const spinnerElement = spinnerId ? document.getElementById(spinnerId) : null;
+            const calculatingElement = calculatingId ? document.getElementById(calculatingId) : null;
+            if (fareElement) fareElement.textContent = `₹ ${totalFare}`;
+            if (spinnerElement) spinnerElement.classList.add('hidden');
+            if (calculatingElement) {
+                calculatingElement.classList.add('hidden');
+            }
+            const firstLine = `Includes up to ${p.dailyKmLimit} km/day. Extra ₹${p.ratePerKm}/km beyond.`;
+            const secondLine = `After 10:00 PM additional bata ₹${p.bataPerDay}/day applies.`;
+            const thirdLine = `Toll, parking and state permit charges are extra.`;
+            setPolicyNote(fareId, `${firstLine}<br>${secondLine}<br>${thirdLine}`);
+        });
+        return;
     }
 
     const pickupInput = document.getElementById('pickupLocation');
@@ -2229,6 +2307,12 @@ async function getDistanceFromGoogleMaps(origin, destination) {
 function setupFareCalculation() {
     const pickupInput = document.getElementById('pickupLocation');
     const dropInput = document.getElementById('dropLocation');
+    const outPickup = document.getElementById('outstationPickupLocation');
+    const outDrop = document.getElementById('outstationDropLocation');
+    const oneWayDate = document.querySelector('#outstation-tab input[name="onewayDate"]');
+    const startDate = document.querySelector('#outstation-tab input[name="startDate"]');
+    const returnDate = document.querySelector('#outstation-tab input[name="returnDate"]');
+    const tripTypeRadios = document.querySelectorAll('#outstation-tab input[name="tripType"]');
     
     if (pickupInput && dropInput) {
         // Add debounced event listeners
@@ -2246,6 +2330,15 @@ function setupFareCalculation() {
         dropInput.addEventListener('change', debouncedCalculate);
         dropInput.addEventListener('input', debouncedCalculate);
     }
+
+    // Outstation inputs should also trigger recalculation (dates and trip type)
+    const trigger = () => calculateDistanceAndUpdateFares();
+    if (outPickup) outPickup.addEventListener('change', trigger);
+    if (outDrop) outDrop.addEventListener('change', trigger);
+    if (oneWayDate) oneWayDate.addEventListener('change', trigger);
+    if (startDate) startDate.addEventListener('change', trigger);
+    if (returnDate) returnDate.addEventListener('change', trigger);
+    tripTypeRadios.forEach(r => r.addEventListener('change', trigger));
 }
 
 // Form validation for vehicle selection
