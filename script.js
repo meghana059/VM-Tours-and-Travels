@@ -1570,7 +1570,7 @@ const FIELD_MAP = {
 };
 
 // Google Apps Script Web App URL - Deployed and working
-const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyGuty33r-zyM_tQqNbezJJcueGrEoXBpun0TZeoqPC5e7z4Mof68CWbHZJESEMs5NxPw/exec';
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbylv6F4TMYGo-NlLXZt8ox6ivrTJKHpeaBiIAolqiuEEFRQeoQ0VzDdboRrYD8Spf61Cw/exec';
 
 // Google Distance Matrix API
 const GOOGLE_DISTANCE_API_KEY = 'AIzaSyCvh94LjftZWU-eVM380sTSRqtfXkKyw-g';
@@ -2013,6 +2013,16 @@ const VEHICLE_RATES = {
     }
 };
 
+// Static package prices (fixed, no distance calculation)
+const PACKAGE_FIXED_PRICES = {
+    'Sedan': 1995,
+    'Maruti Ertiga AC': 2495,
+    'Toyota Innova AC': 2695,
+    'Toyota Innova Crysta AC': 2895,
+    'Tempo Traveller Non-AC': 3995,
+    'Tempo Traveller AC': 4495
+};
+
 const VEHICLE_FARE_IDS = {
     'Sedan': 'sedan-fare',
     'Maruti Ertiga AC': 'ertiga-fare',
@@ -2042,6 +2052,25 @@ const VEHICLE_MAIN_PRICE_IDS = {
 
 async function calculateDistanceAndUpdateFares() {
     console.log('=== FARE CALCULATION STARTED ===');
+    // Detect booking type using the active tab button's data-tab attribute
+    const activeTabButton = document.querySelector('.tab-button.active');
+    const bookingType = (activeTabButton ? activeTabButton.getAttribute('data-tab') : 'local') || 'local';
+    if (bookingType.toLowerCase() === 'package') {
+        console.log('Package booking detected — using static package prices');
+        Object.entries(PACKAGE_FIXED_PRICES).forEach(([vehicleName, price]) => {
+            const fareId = VEHICLE_FARE_IDS[vehicleName];
+            const fareElement = document.getElementById(fareId);
+            const spinnerId = fareId?.replace('-fare', '-spinner');
+            const calculatingId = fareId?.replace('-fare', '-calculating');
+            const spinnerElement = spinnerId ? document.getElementById(spinnerId) : null;
+            const calculatingElement = calculatingId ? document.getElementById(calculatingId) : null;
+            if (fareElement) fareElement.textContent = `₹ ${price}`;
+            if (spinnerElement) spinnerElement.classList.add('hidden');
+            if (calculatingElement) calculatingElement.classList.add('hidden');
+        });
+        return; // Do not calculate distance for package bookings
+    }
+
     const pickupInput = document.getElementById('pickupLocation');
     const dropInput = document.getElementById('dropLocation');
     
@@ -2103,9 +2132,7 @@ async function calculateDistanceAndUpdateFares() {
         console.log('Calculated Distance:', distance, 'km');
         console.log('=====================================');
         
-        // Get current booking type (Local/Outstation/Package)
-        const activeTab = document.querySelector('.tab.active');
-        const bookingType = activeTab ? activeTab.id.replace('-tab', '') : 'Local';
+        // Current booking type (Local/Outstation)
         console.log('Current booking type:', bookingType);
         
         // Get rates for current booking type
@@ -2174,7 +2201,7 @@ async function getDistanceFromGoogleMaps(origin, destination) {
     console.log('Destination:', destination);
     
     // Use your Google Apps Script as a proxy to avoid CORS issues
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycbyGuty33r-zyM_tQqNbezJJcueGrEoXBpun0TZeoqPC5e7z4Mof68CWbHZJESEMs5NxPw/exec';
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbylv6F4TMYGo-NlLXZt8ox6ivrTJKHpeaBiIAolqiuEEFRQeoQ0VzDdboRrYD8Spf61Cw/exec';
     const url = `${scriptUrl}?action=distance&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`;
     
     console.log('Script URL:', url);
@@ -2445,8 +2472,18 @@ function showLocationValidationError(fieldName, location) {
         container = input ? input.closest('#dropOther') : null;
     }
     
-    if (input) {
-        input.classList.add('border-red-500', 'bg-red-50');
+  if (input) {
+    // Remove any success styling/icons to avoid simultaneous tick + error
+    input.classList.remove('border-green-500', 'bg-green-50');
+    const possibleContainer = input.closest('.grid > div') || input.parentNode;
+    if (possibleContainer) {
+      const successIcon = possibleContainer.querySelector('.fa-check-circle');
+      if (successIcon && successIcon.parentNode) {
+        successIcon.parentNode.removeChild(successIcon);
+      }
+    }
+
+    input.classList.add('border-red-500', 'bg-red-50');
         
         // Add error message below the field
         if (container) {

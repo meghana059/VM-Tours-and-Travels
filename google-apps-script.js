@@ -7,8 +7,18 @@ const CONFIG = {
   SHEET_TAB: 'Form Responses 1',
   OWNER_EMAIL: 'engmeghana@gmail.com',
   GOOGLE_DISTANCE_API_KEY: 'AIzaSyCvh94LjftZWU-eVM380sTSRqtfXkKyw-g',
-  API_URL: 'https://script.google.com/macros/s/AKfycbyGuty33r-zyM_tQqNbezJJcueGrEoXBpun0TZeoqPC5e7z4Mof68CWbHZJESEMs5NxPw/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycbylv6F4TMYGo-NlLXZt8ox6ivrTJKHpeaBiIAolqiuEEFRQeoQ0VzDdboRrYD8Spf61Cw/exec',
   SUBMIT_TO_FORM: false
+};
+
+// Fixed package prices (no distance calculation)
+const PACKAGE_FIXED_PRICES = {
+  'Sedan': 1995,
+  'Maruti Ertiga AC': 2495,
+  'Toyota Innova AC': 2695,
+  'Toyota Innova Crysta AC': 2895,
+  'Tempo Traveller Non-AC': 3995,
+  'Tempo Traveller AC': 4495
 };
 
 // Vehicle pricing for local trips (distance-based rates)
@@ -146,8 +156,20 @@ function doPost(e) {
     // Normalize values
     const booking = normalizeBooking(data);
 
-    // Calculate distance and fare
-    try {
+  // Calculate distance and fare
+  try {
+      // Short-circuit for Package bookings: use fixed prices and skip distance
+      if ((booking.bookingType || '').toLowerCase() === 'package') {
+        var fixed = PACKAGE_FIXED_PRICES[String(booking.vehicle || '')] || '';
+        booking.distance = '';
+        booking.pricePerKm = '';
+        booking.numberOfDays = 1;
+        booking.baseFare = fixed || '';
+        booking.dailyCharge = 0;
+        booking.totalFare = fixed || '';
+        booking.tripFare = fixed || '';
+        console.log('Package booking – using fixed price:', booking.vehicle, fixed);
+      } else {
       const distanceResult = calculateDistance(booking.pickup, booking.drop);
       let finalDistance = 10; // Default fallback
       
@@ -184,6 +206,7 @@ function doPost(e) {
       booking.tripFare = fareDetails.totalFare;
       
       console.log('Fare added to booking - totalFare:', booking.totalFare, 'tripFare:', booking.tripFare);
+      }
     } catch (fareErr) {
       console.warn('Fare calculation failed:', fareErr);
       // Continue without fare details
@@ -251,8 +274,8 @@ function normalizeBooking(d) {
     packageType = '';
     console.log('Local booking: tripType and packageType set to empty');
   } else if (bookingType === 'Package') {
-    // For package trips: no trip type
-    tripType = 'Package Trip';
+    // For package trips: trip type not required, keep only package type
+    tripType = '';
     packageType = d.packageType || '';
   } else if (bookingType === 'Outstation') {
     // For outstation trips: no package type
@@ -266,20 +289,13 @@ function normalizeBooking(d) {
   
   // NEW LOGIC: travelDate is now the start date for all bookings
   // returnDate is only used for outstation round trips
-  const travelDate = d.travelDate || '';
-  const startDate = travelDate; // travelDate becomes startDate for all bookings
+  const rawTravelDate = d.travelDate || d.packageDate || d.onewayDate || d.startDate || d.date || '';
   const returnDate = (bookingType === 'Outstation' && tripType === 'Round Trip') ? (d.returnDate || '') : '';
   
-  console.log('Date handling:');
-  console.log('- travelDate:', travelDate);
-  console.log('- startDate:', startDate);
-  console.log('- returnDate:', returnDate);
-  console.log('- bookingType:', bookingType);
-  console.log('- tripType:', tripType);
-  console.log('- Should return date be empty?', bookingType !== 'Outstation' || tripType !== 'Round Trip');
+  // Date handling logs will be printed after formatting below
   
   // Normalize/construct time (server-side safety)
-  var timeNormalized = d.time || d.travelTime || '';
+  var timeNormalized = d.time || d.travelTime || d.packageTime || d.onewayTime || d.roundtripTime || '';
   if (!timeNormalized && d.hour && d.minute && d.period) {
     var h = String(d.hour).padStart(2, '0');
     var m = String(d.minute).padStart(2, '0');
@@ -290,6 +306,63 @@ function normalizeBooking(d) {
     if (p === 'AM' && hh === 12) hh = 0;
     timeNormalized = String(hh).padStart(2, '0') + ':' + m;
   }
+  // Build time from package-specific selectors if still empty
+  if (!timeNormalized && d.packageHour && d.packageMinute && d.packagePeriod) {
+    var ph = String(d.packageHour).padStart(2, '0');
+    var pm = String(d.packageMinute).padStart(2, '0');
+    var pp = String(d.packagePeriod).toUpperCase();
+    var phh = parseInt(ph, 10);
+    if (pp === 'PM' && phh !== 12) phh += 12;
+    if (pp === 'AM' && phh === 12) phh = 0;
+    timeNormalized = String(phh).padStart(2, '0') + ':' + pm;
+  }
+  // Build time from oneway/roundtrip selectors if still empty
+  if (!timeNormalized && d.onewayHour && d.onewayMinute && d.onewayPeriod) {
+    var oh = String(d.onewayHour).padStart(2, '0');
+    var om = String(d.onewayMinute).padStart(2, '0');
+    var op = String(d.onewayPeriod).toUpperCase();
+    var ohh = parseInt(oh, 10);
+    if (op === 'PM' && ohh !== 12) ohh += 12;
+    if (op === 'AM' && ohh === 12) ohh = 0;
+    timeNormalized = String(ohh).padStart(2, '0') + ':' + om;
+  }
+  if (!timeNormalized && d.roundtripHour && d.roundtripMinute && d.roundtripPeriod) {
+    var rh = String(d.roundtripHour).padStart(2, '0');
+    var rm = String(d.roundtripMinute).padStart(2, '0');
+    var rp = String(d.roundtripPeriod).toUpperCase();
+    var rhh = parseInt(rh, 10);
+    if (rp === 'PM' && rhh !== 12) rhh += 12;
+    if (rp === 'AM' && rhh === 12) rhh = 0;
+    timeNormalized = String(rhh).padStart(2, '0') + ':' + rm;
+  }
+
+  // Final formatting to persist in Sheet
+  var tz = Session.getScriptTimeZone();
+  var travelDate = '';
+  try {
+    travelDate = rawTravelDate ? Utilities.formatDate(new Date(rawTravelDate), tz, 'yyyy-MM-dd') : '';
+  } catch (e) {
+    travelDate = String(rawTravelDate || '');
+  }
+  var timeFormatted = '';
+  try {
+    if (timeNormalized) {
+      var timeDate = parseTimeToDate(timeNormalized);
+      timeFormatted = Utilities.formatDate(timeDate, tz, 'HH:mm');
+    }
+  } catch (e2) {
+    timeFormatted = String(timeNormalized || '');
+  }
+
+  const startDate = travelDate; // travelDate becomes startDate for all bookings
+
+  console.log('Date handling:');
+  console.log('- travelDate:', travelDate);
+  console.log('- startDate:', startDate);
+  console.log('- returnDate:', returnDate);
+  console.log('- bookingType:', bookingType);
+  console.log('- tripType:', tripType);
+  console.log('- Should return date be empty?', bookingType !== 'Outstation' || tripType !== 'Round Trip');
 
   return {
     id: d.id || ('BK' + Date.now()),
@@ -301,10 +374,10 @@ function normalizeBooking(d) {
     bookingType: bookingType,
     tripType: tripType,
     vehicle: d.vehicle || d.selectedVehicle || '',
-    pickup: d.pickup || '',
-    drop: d.drop || '',
+    pickup: d.pickup || d.pickupLocation || d.packagePickup || '',
+    drop: d.drop || d.dropLocation || '',
     travelDate: travelDate,
-    time: timeNormalized,
+    time: timeFormatted || d.pickupTime || d.travel_time || d.package_time || '',
     packageType: packageType,
     startDate: startDate, // Now always equals travelDate
     returnDate: returnDate // Only for outstation round trips
@@ -513,6 +586,18 @@ function enforceSheetHeadersAndColumns(sheetId, tabName) {
   if (lastCol > expectedCols) {
     sh.deleteColumns(expectedCols + 1, lastCol - expectedCols);
   }
+
+  // Enforce number/date formats to prevent mis-formatting (e.g., Trip Fare as date)
+  try {
+    // Travel Date (col 12) as date
+    sh.getRange(2, 12, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat('yyyy-mm-dd');
+    // Travel Time (col 13) as time
+    sh.getRange(2, 13, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat('hh:mm');
+    // Trip Fare (col 16) as number/currency-like
+    sh.getRange(2, 16, Math.max(1, sh.getMaxRows() - 1), 1).setNumberFormat('#,##0');
+  } catch (fmtErr) {
+    console.warn('Failed to enforce number formats:', fmtErr);
+  }
 }
 
 // Build a fingerprint to detect duplicate submissions
@@ -675,8 +760,33 @@ function sendCustomerEmail(b) {
 }
 
 function buildEmailHtml(b) {
+  // Package pricing table (fixed package price + extra per-km beyond limit)
+  function getPackageInfo(vehicleName) {
+    var table = {
+      'Sedan': { basePrice: 1995, extraPerKm: 18 },
+      'Maruti Ertiga AC': { basePrice: 2495, extraPerKm: 18 },
+      'Toyota Innova AC': { basePrice: 2695, extraPerKm: 18 },
+      'Toyota Innova Crysta AC': { basePrice: 2895, extraPerKm: 20 },
+      'Tempo Traveller Non-AC': { basePrice: 3995, extraPerKm: 20 },
+      'Tempo Traveller AC': { basePrice: 4495, extraPerKm: 20 }
+    };
+    return table[vehicleName] || null;
+  }
+
   var fareSection = '';
-  if (b.totalFare) {
+  if ((b.bookingType || '').toLowerCase() === 'package') {
+    var pkg = getPackageInfo(String(b.vehicle || ''));
+    var pkgPrice = pkg ? pkg.basePrice : '';
+    var extraPerKm = pkg ? pkg.extraPerKm : '';
+    fareSection = '<div style="margin-top:16px;padding:12px;background:#eef2ff;border-radius:8px;border-left:4px solid #4f46e5">'
+      + '<h3 style="margin:0 0 8px;color:#3730a3;font-size:16px">Package Details</h3>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:14px;color:#374151">'
+      + '<div><b>Vehicle:</b> ' + escapeHtml(b.vehicle) + '</div>'
+      + (pkgPrice !== '' ? '<div><b>Package Price:</b> ₹' + escapeHtml(pkgPrice) + '</div>' : '')
+      + (extraPerKm !== '' ? '<div><b>Extra Charges:</b> ₹' + escapeHtml(extraPerKm) + '/km beyond package limit</div>' : '')
+      + (b.packageType ? '<div><b>Package Type:</b> ' + escapeHtml(b.packageType) + '</div>' : '')
+      + '</div></div>';
+  } else if (b.totalFare) {
     fareSection = '<div style="margin-top:16px;padding:12px;background:#f0fdf4;border-radius:8px;border-left:4px solid #22c55e">'
       + '<h3 style="margin:0 0 8px;color:#166534;font-size:16px">Fare Details</h3>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:14px;color:#374151">'
