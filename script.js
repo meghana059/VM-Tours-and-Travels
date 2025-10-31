@@ -905,14 +905,34 @@ function resetBookingFlow() {
 function calculateTotalCost(vehicleName, rateOrFare) {
     const activeTabButton = document.querySelector('.tab-button.active');
     const activeTab = (activeTabButton ? activeTabButton.getAttribute('data-tab') : 'local') || 'local';
-    // Outstation: compute per-day fare from dates and parameters
+    // Outstation: handle oneway vs roundtrip
     if (activeTab.toLowerCase() === 'outstation') {
+        const tripTypeEl = document.querySelector('#outstation-tab input[name="tripType"]:checked');
+        const tripType = (tripTypeEl ? tripTypeEl.value : 'oneway') || 'oneway';
         const p = OUTSTATION_PARAMS[vehicleName];
         if (!p) return rateOrFare;
+        if (tripType === 'oneway') {
+            const oneWayRates = {
+                'Sedan': 19,
+                'Maruti Ertiga AC': 28,
+                'Toyota Innova AC': 30,
+                'Toyota Innova Crysta AC': 31,
+                'Tempo Traveller Non-AC': 34,
+                'Tempo Traveller AC': 38,
+                'Bus 21+1 Non-AC': 50,
+                'Bus 21+1 AC': 56
+            };
+            const distance = window.currentBookingData?.calculatedDistance;
+            const rate = oneWayRates[vehicleName];
+            if (!distance || !rate) return rateOrFare;
+            const total = Math.round(distance * rate + p.bataPerDay);
+            console.log(`Selection preview (Outstation One Way): ${vehicleName} - ${distance}×₹${rate} + ₹${p.bataPerDay} = ₹${total}`);
+            return total;
+        }
         const days = getOutstationDays();
         const basePerDay = (p.ratePerKm * p.dailyKmLimit) + p.bataPerDay;
         const total = Math.round(basePerDay * days);
-        console.log(`Selection preview (Outstation): ${vehicleName} - ((₹${p.ratePerKm}×${p.dailyKmLimit})+₹${p.bataPerDay})×${days} = ₹${total}`);
+        console.log(`Selection preview (Outstation Round Trip): ${vehicleName} - ((₹${p.ratePerKm}×${p.dailyKmLimit})+₹${p.bataPerDay})×${days} = ₹${total}`);
         return total;
     }
     // Already computed total
@@ -1575,7 +1595,7 @@ const FIELD_MAP = {
 };
 
 // Google Apps Script Web App URL - Deployed and working
-const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbylv6F4TMYGo-NlLXZt8ox6ivrTJKHpeaBiIAolqiuEEFRQeoQ0VzDdboRrYD8Spf61Cw/exec';
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwsGP_ekgTWnmGnoUlYlSHI52PJopyzIhCZa4UBdDeFf3i1X5TxN6ufYCSaw0urf2UH9Q/exec';
 
 // Google Distance Matrix API
 const GOOGLE_DISTANCE_API_KEY = 'AIzaSyCvh94LjftZWU-eVM380sTSRqtfXkKyw-g';
@@ -2044,6 +2064,96 @@ function getOutstationDays() {
     return Math.max(1, days);
 }
 
+function getOutstationLocations() {
+    console.log('=== OUTSTATION LOCATIONS DEBUG START ===');
+    
+    // Try dedicated outstation selects (may not exist if using text inputs)
+    const outPickupEl = document.getElementById('outstationPickupLocation');
+    const outDropEl = document.getElementById('outstationDropLocation');
+    let origin = outPickupEl?.value || '';
+    let destination = outDropEl?.value || '';
+    // Also try name-based inputs used by current Outstation UI
+    const outPickupInput = document.querySelector('input[name="outstationPickup"]');
+    const outDropInput = document.querySelector('input[name="outstationDrop"]');
+    if (!origin && outPickupInput) origin = outPickupInput.value || '';
+    if (!destination && outDropInput) destination = outDropInput.value || '';
+    
+    console.log('1. outstationPickupLocation element:', outPickupEl);
+    console.log('1. outstationPickupLocation value:', origin);
+    console.log('1. outstationDropLocation element:', outDropEl);
+    console.log('1. outstationDropLocation value:', destination);
+    console.log('1b. input[name="outstationPickup"] value:', outPickupInput?.value);
+    console.log('1b. input[name="outstationDrop"] value:', outDropInput?.value);
+    
+    // If 'Other' is selected, read from corresponding text inputs
+    if (origin === 'Other') {
+        const otherPickup = document.querySelector('input[name="outstationPickupOther"]')?.value || '';
+        origin = otherPickup || origin;
+        console.log('2. Pickup "Other" text input value:', otherPickup);
+    }
+    if (destination === 'Other') {
+        const otherDrop = document.querySelector('input[name="outstationDropOther"]')?.value || '';
+        destination = otherDrop || destination;
+        console.log('2. Drop "Other" text input value:', otherDrop);
+    }
+    
+    // Fallback to common pickup/drop if empty
+    if (!origin) {
+        const localPickup = document.getElementById('pickupLocation')?.value || '';
+        origin = localPickup;
+        console.log('3. Fallback to pickupLocation value:', localPickup);
+    }
+    if (!destination) {
+        const localDrop = document.getElementById('dropLocation')?.value || '';
+        destination = localDrop;
+        console.log('3. Fallback to dropLocation value:', localDrop);
+    }
+    
+    // Fallback to any text input with these names (for Places autocomplete variants)
+    if (!origin) {
+        const namedPickup = document.querySelector('input[name="pickup"]')?.value || '';
+        origin = namedPickup;
+        console.log('4. Fallback to input[name="pickup"] value:', namedPickup);
+    }
+    if (!destination) {
+        const namedDrop = document.querySelector('input[name="drop"]')?.value || '';
+        destination = namedDrop;
+        console.log('4. Fallback to input[name="drop"] value:', namedDrop);
+    }
+    
+    // Fallback to stored booking data
+    if ((!origin || !destination) && window.currentBookingData) {
+        const bookingOrigin = window.currentBookingData.pickup || '';
+        const bookingDest = window.currentBookingData.drop || '';
+        origin = origin || bookingOrigin;
+        destination = destination || bookingDest;
+        console.log('5. Fallback to bookingData - pickup:', bookingOrigin, 'drop:', bookingDest);
+    }
+    
+    // Sensible default for origin if still empty (common case: Bangalore)
+    if (!origin) {
+        origin = 'Bangalore';
+        console.log('6. Using default origin: Bangalore');
+    }
+    
+    // Log ALL form fields for debugging
+    console.log('=== ALL OUTSTATION FORM FIELDS ===');
+    const allOutstationInputs = document.querySelectorAll('#outstation-tab input, #outstation-tab select');
+    allOutstationInputs.forEach(el => {
+        const name = el.name || el.id || 'unnamed';
+        const value = el.value || '(empty)';
+        const type = el.tagName.toLowerCase();
+        console.log(`  ${type}[name="${name}" id="${el.id}"] = "${value}"`);
+    });
+    
+    console.log('=== FINAL RESOLVED LOCATIONS ===');
+    console.log('Origin:', origin);
+    console.log('Destination:', destination);
+    console.log('=== OUTSTATION LOCATIONS DEBUG END ===');
+    
+    return { origin, destination };
+}
+
 // Static package prices (fixed, no distance calculation)
 const PACKAGE_FIXED_PRICES = {
     'Sedan': 1995,
@@ -2102,50 +2212,125 @@ async function calculateDistanceAndUpdateFares() {
         return; // Do not calculate distance for package bookings
     }
 
-    // For outstation: compute per-day fare from dates; do not use distance
+    // For outstation: One Way (distance-based) vs Round Trip (per-day)
     if (bookingType.toLowerCase() === 'outstation') {
-        const days = getOutstationDays();
+        const tripTypeEl = document.querySelector('#outstation-tab input[name="tripType"]:checked');
+        const tripType = (tripTypeEl ? tripTypeEl.value : 'oneway') || 'oneway';
         const currentRates = VEHICLE_RATES['Outstation'];
-        function setPolicyNote(fareId, html) {
+        const oneWayRates = {
+            'Sedan': 19,
+            'Maruti Ertiga AC': 28,
+            'Toyota Innova AC': 30,
+            'Toyota Innova Crysta AC': 31,
+            'Tempo Traveller Non-AC': 34,
+            'Tempo Traveller AC': 38,
+            'Bus 21+1 Non-AC': 50,
+            'Bus 21+1 AC': 56
+        };
+        const ensurePolicyNoteRoundTrip = (fareId, p) => {
+            if (!fareId || !p) return;
+            const firstLine = `Includes up to ${p.dailyKmLimit} km/day. Extra ₹${p.ratePerKm}/km beyond.`;
+            const secondLine = `After 10:00 PM additional bata ₹${p.bataPerDay}/day applies.`;
+            const thirdLine = `Toll, parking and state permit charges are extra.`;
+            const html = `${firstLine}<br>${secondLine}<br>${thirdLine}`;
             const fareEl = document.getElementById(fareId);
             if (!fareEl) return;
-            // Find container under the same price block to place the note
-            const priceBlock = fareEl.closest('.flex.items-center.space-x-2')?.parentElement; // the mb-3 wrapper
+            const priceBlock = fareEl.closest('.flex.items-center.space-x-2')?.parentElement;
             const existingId = fareId.replace('-fare', '-note');
             let noteEl = document.getElementById(existingId);
             if (!noteEl) {
                 noteEl = document.createElement('p');
                 noteEl.id = existingId;
                 noteEl.className = 'text-xs text-gray-500 mt-1';
-                // Append under the small calculating line's container
-                if (priceBlock) {
-                    priceBlock.appendChild(noteEl);
-                } else {
-                    fareEl.parentElement?.appendChild(noteEl);
-                }
+                (priceBlock || fareEl.parentElement)?.appendChild(noteEl);
             }
             noteEl.innerHTML = html;
-        }
-        Object.entries(currentRates).forEach(([vehicleName, rate]) => {
-            const p = OUTSTATION_PARAMS[vehicleName];
-            const basePerDay = (p.ratePerKm * p.dailyKmLimit) + p.bataPerDay;
-            const totalFare = Math.round(basePerDay * days);
-            const fareId = VEHICLE_FARE_IDS[vehicleName];
-            const fareElement = document.getElementById(fareId);
-            const spinnerId = fareId?.replace('-fare', '-spinner');
-            const calculatingId = fareId?.replace('-fare', '-calculating');
-            const spinnerElement = spinnerId ? document.getElementById(spinnerId) : null;
-            const calculatingElement = calculatingId ? document.getElementById(calculatingId) : null;
-            if (fareElement) fareElement.textContent = `₹ ${totalFare}`;
-            if (spinnerElement) spinnerElement.classList.add('hidden');
-            if (calculatingElement) {
-                calculatingElement.classList.add('hidden');
-            }
-            const firstLine = `Includes up to ${p.dailyKmLimit} km/day. Extra ₹${p.ratePerKm}/km beyond.`;
-            const secondLine = `After 10:00 PM additional bata ₹${p.bataPerDay}/day applies.`;
+        };
+
+        const ensurePolicyNoteOneWay = (fareId, oneWayRate, bataPerDay) => {
+            if (!fareId || !oneWayRate) return;
+            const firstLine = `Extra ₹${oneWayRate}/km`;
+            const secondLine = `After 10:00 PM additional bata ₹${bataPerDay}/day applies.`;
             const thirdLine = `Toll, parking and state permit charges are extra.`;
-            setPolicyNote(fareId, `${firstLine}<br>${secondLine}<br>${thirdLine}`);
-        });
+            const html = `${firstLine}<br>${secondLine}<br>${thirdLine}`;
+            const fareEl = document.getElementById(fareId);
+            if (!fareEl) return;
+            const priceBlock = fareEl.closest('.flex.items-center.space-x-2')?.parentElement;
+            const existingId = fareId.replace('-fare', '-note');
+            let noteEl = document.getElementById(existingId);
+            if (!noteEl) {
+                noteEl = document.createElement('p');
+                noteEl.id = existingId;
+                noteEl.className = 'text-xs text-gray-500 mt-1';
+                (priceBlock || fareEl.parentElement)?.appendChild(noteEl);
+            }
+            noteEl.innerHTML = html;
+        };
+
+        if (tripType === 'oneway') {
+            try {
+                const { origin: pickup, destination: drop } = getOutstationLocations();
+                console.log('Outstation oneway origin/destination:', pickup, '->', drop);
+                if (!pickup || !drop) {
+                    console.warn('Outstation oneway: missing origin/destination, skipping distance fetch');
+                    return;
+                }
+                const distance = await getDistanceFromGoogleMaps(pickup, drop);
+                console.log('Distance between pickup and drop:', {
+                    pickup,
+                    drop,
+                    distanceKm: distance
+                });
+                if (window.currentBookingData) window.currentBookingData.calculatedDistance = distance;
+                // Only process vehicles that have fareIds (i.e., are displayed in the modal)
+                Object.entries(currentRates)
+                    .filter(([vehicleName]) => VEHICLE_FARE_IDS[vehicleName]) // Filter out vehicles without fareIds
+                    .forEach(([vehicleName]) => {
+                        const p = OUTSTATION_PARAMS[vehicleName];
+                        const rate = oneWayRates[vehicleName];
+                        if (!p || !rate) {
+                            console.warn(`Skipping ${vehicleName}: missing params or rate`);
+                            return;
+                        }
+                        const bata = p.bataPerDay;
+                        const totalFare = Math.round(distance * rate + bata);
+                        const fareId = VEHICLE_FARE_IDS[vehicleName];
+                    const fareElement = document.getElementById(fareId);
+                    const spinnerId = fareId.replace('-fare', '-spinner');
+                    const calculatingId = fareId.replace('-fare', '-calculating');
+                    const spinnerElement = document.getElementById(spinnerId);
+                    const calculatingElement = document.getElementById(calculatingId);
+                    if (fareElement) fareElement.textContent = `₹ ${totalFare}`;
+                    if (spinnerElement) spinnerElement.classList.add('hidden');
+                    if (calculatingElement) calculatingElement.classList.add('hidden');
+                    ensurePolicyNoteOneWay(fareId, rate, bata);
+                });
+            } catch (e) {
+                console.error('Error calculating one-way outstation fare:', e);
+            }
+            return;
+        }
+
+        // Round Trip: per-day formula using dates
+        const days = getOutstationDays();
+        // Only process vehicles that have fareIds (i.e., are displayed in the modal)
+        Object.entries(currentRates)
+            .filter(([vehicleName]) => VEHICLE_FARE_IDS[vehicleName]) // Filter out vehicles without fareIds
+            .forEach(([vehicleName, rate]) => {
+                const p = OUTSTATION_PARAMS[vehicleName];
+                const basePerDay = (p.ratePerKm * p.dailyKmLimit) + p.bataPerDay;
+                const totalFare = Math.round(basePerDay * days);
+                const fareId = VEHICLE_FARE_IDS[vehicleName];
+                const fareElement = document.getElementById(fareId);
+                const spinnerId = fareId.replace('-fare', '-spinner');
+                const calculatingId = fareId.replace('-fare', '-calculating');
+                const spinnerElement = document.getElementById(spinnerId);
+                const calculatingElement = document.getElementById(calculatingId);
+                if (fareElement) fareElement.textContent = `₹ ${totalFare}`;
+                if (spinnerElement) spinnerElement.classList.add('hidden');
+                if (calculatingElement) calculatingElement.classList.add('hidden');
+                ensurePolicyNoteRoundTrip(fareId, p);
+            });
         return;
     }
 
@@ -2279,7 +2464,7 @@ async function getDistanceFromGoogleMaps(origin, destination) {
     console.log('Destination:', destination);
     
     // Use your Google Apps Script as a proxy to avoid CORS issues
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycbylv6F4TMYGo-NlLXZt8ox6ivrTJKHpeaBiIAolqiuEEFRQeoQ0VzDdboRrYD8Spf61Cw/exec';
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbwsGP_ekgTWnmGnoUlYlSHI52PJopyzIhCZa4UBdDeFf3i1X5TxN6ufYCSaw0urf2UH9Q/exec';
     const url = `${scriptUrl}?action=distance&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}`;
     
     console.log('Script URL:', url);

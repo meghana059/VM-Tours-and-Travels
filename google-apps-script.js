@@ -196,7 +196,7 @@ function doPost(e) {
         ? (finalDistance * 2)
         : finalDistance;
 
-      const fareDetails = calculateFare(adjustedDistance, booking.vehicle, numberOfDays, booking.bookingType);
+      const fareDetails = calculateFare(adjustedDistance, booking.vehicle, numberOfDays, booking.bookingType, booking.tripType);
       console.log('Fare calculation result:', fareDetails);
       
       // Add fare details to booking
@@ -986,7 +986,7 @@ function getFallbackDistance(origin, destination) {
 }
 
 // Calculate fare based on distance, vehicle type, and number of days
-function calculateFare(distance, vehicleType, numberOfDays, bookingType = 'Local') {
+function calculateFare(distance, vehicleType, numberOfDays, bookingType = 'Local', tripType) {
   // Normalize booking type to handle case variations
   const normalizedBookingType = bookingType.toLowerCase() === 'local' ? 'Local' : 
                                bookingType.toLowerCase() === 'outstation' ? 'Outstation' :
@@ -1022,7 +1022,57 @@ function calculateFare(distance, vehicleType, numberOfDays, bookingType = 'Local
       totalFare: Math.round(totalFare * 100) / 100
     };
   } else if (normalizedBookingType === 'Outstation') {
-    // For outstation trips, use per-day formula: ((rate * dailyKmLimit) + bata) * days
+    const normalizedTripType = String(tripType || '').toLowerCase();
+
+    // One Way: distance-based fare + one bata
+    if (normalizedTripType === 'oneway' || normalizedTripType === 'one way') {
+      const oneWayRates = {
+        'Sedan': 19,
+        'Maruti Ertiga AC': 28,
+        'Toyota Innova AC': 30,
+        'Toyota Innova Crysta AC': 31,
+        'Tempo Traveller Non-AC': 34,
+        'Tempo Traveller AC': 38,
+        'Bus 21+1 Non-AC': 50,
+        'Bus 21+1 AC': 56
+      };
+      const bataByVehicle = {
+        'Sedan': 300,
+        'Maruti Ertiga AC': 400,
+        'Toyota Innova AC': 400,
+        'Toyota Innova Crysta AC': 400,
+        'Tempo Traveller Non-AC': 500,
+        'Tempo Traveller AC': 500,
+        'Bus 21+1 Non-AC': 600,
+        'Bus 21+1 AC': 600
+      };
+
+      const rate = oneWayRates[vehicleType] || 19;
+      const bata = bataByVehicle[vehicleType] || 300;
+
+      const baseFareOneWay = distance * rate;
+      const totalFareOneWay = baseFareOneWay + bata; // one bata for the day
+
+      console.log('Outstation One Way pricing:', {
+        distance: distance,
+        vehicleType: vehicleType,
+        ratePerKm: rate,
+        bata: bata,
+        baseFare: baseFareOneWay,
+        totalFare: totalFareOneWay
+      });
+
+      return {
+        distance: Math.round(distance * 100) / 100,
+        pricePerKm: rate,
+        numberOfDays: 1,
+        baseFare: Math.round(baseFareOneWay * 100) / 100,
+        dailyCharge: bata, // store bata in dailyCharge field
+        totalFare: Math.round(totalFareOneWay * 100) / 100
+      };
+    }
+
+    // Round Trip and others: per-day formula: ((rate * dailyKmLimit) + bata) * days
     const params = {
       'Sedan': { ratePerKm: 11, dailyKmLimit: 250, bataPerDay: 300 },
       'Maruti Ertiga AC': { ratePerKm: 14, dailyKmLimit: 300, bataPerDay: 400 },
